@@ -54,7 +54,8 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         plots=cfg.work.plots,
     )
     sharing = T.SHARING.format(channel_lines="\n".join(f"- {T.CHANNEL_LINES[c]}" for c in channel_order),
-                               index_sentence=T.INDEX_PREVIEW if cfg.comms.preview_chars > 0 else T.INDEX_PLAIN)
+                               index_sentence=T.INDEX_PREVIEW if cfg.comms.preview_chars > 0 else T.INDEX_PLAIN,
+                               read_sentence=read_sentence(cfg, channel_order))
     actions = T.ACTIONS.format(
         actions=cfg.comms.actions_per_round,
         channel_actions="\n".join(f"- {T.CHANNEL_ACTIONS[c]}" for c in channel_order),
@@ -65,6 +66,15 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
                                journal_cap=cfg.journal.cap_chars, goal_every=cfg.goal_every)
     answer = T.ANSWER.format(arm_answer=T.ARM_ANSWER[arm])
     return "\n\n".join([T.FRAME, village + "\n" + rules, sharing, actions, journal, answer])
+
+
+def read_sentence(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
+    c = cfg.comms
+    if not c.read_memory:
+        return ""
+    chosen = [ch for ch in channel_order if ch in c.read_memory_channels]
+    what = "item" if len(chosen) == 3 else " or ".join(T.READ_NOUNS[ch] for ch in chosen)
+    return T.READ_REWARD.format(what=what, n=f"{c.read_memory:g}", s="" if c.read_memory == 1 else "s")
 
 
 def schema(ctx: AgentContext) -> dict[str, Any]:

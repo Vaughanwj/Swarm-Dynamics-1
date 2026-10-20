@@ -16,7 +16,7 @@ from swarm_village.domain.seed import ORDERS, ROTATION, SEED_TEXTS, channel_orde
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "679ed318f7e57fb17724ab7bc4cd35a7b12b16d9b9d278d08ef82ae8c15e987a"  # v3
+FROZEN_PROMPT_SHA256 = "b4034ceda15df99647b27736459427b26c180680fbffc4e83c3dee18f8061bac"  # v3
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -27,7 +27,8 @@ def frozen_text_hash() -> str:
     parts = [T.VERSION, T.FRAME, T.VILLAGE, json.dumps(T.ARM_RULES, sort_keys=True),
              json.dumps(T.CHANNEL_LINES, sort_keys=True), json.dumps(T.CHANNEL_ACTIONS, sort_keys=True), T.SHARING,
              T.INDEX_PLAIN, T.INDEX_PREVIEW, T.ACTIONS, json.dumps(T.ARM_ACTIONS, sort_keys=True), T.JOURNAL, T.DISCLOSURE, T.ANSWER,
-             json.dumps(T.ARM_ANSWER, sort_keys=True), T.GOALS_REQUEST, T.COUNCIL_PROPOSE, T.COUNCIL_VOTE]
+             json.dumps(T.ARM_ANSWER, sort_keys=True), T.GOALS_REQUEST, T.COUNCIL_PROPOSE, T.COUNCIL_VOTE,
+             T.READ_REWARD, json.dumps(T.READ_NOUNS, sort_keys=True)]
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()
 
 

@@ -57,6 +57,8 @@ class CommsConfig:
     index_max_per_channel: int = 30  # ... and at most this many per channel, newest first
     preview_chars: int = 80  # each index line shows the opening words of what its writer wrote (0: none)
     presses_per_round: int = 1  # the button, in both arms (Milestone 5)
+    read_memory: float = 0.0  # memory points for each item read (0: off), in the channels below
+    read_memory_channels: tuple[str, ...] = ("message", "board", "record")
 
 
 @dataclass(frozen=True)

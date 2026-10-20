@@ -75,6 +75,8 @@ def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ..
         "goals": {k: v for k, v in M.goals(events).items() if k != "agents"},
         "exploitation": M.exploitation(events) if start["arm"] == "tontine" else None,
         "tontine": tontine_summary(events) if start["arm"] == "tontine" else None,
+        "leaders": M.leaders(events),
+        "names": {e["agent"]: e["new"] for e in M.of(events, "state") if e["field"] == "name"},
     }
 
 
@@ -147,6 +149,14 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
                      f"(after reading only: {s['infection']['infected'] if s['infection'] else 0}).")
         if s["rt"]:
             L.append(f"- Rt by lineage depth: {s['rt']['rt_by_depth']}; agents with changepoints: {len(s['rt']['changepoints'])}.")
+        if s.get("leaders"):
+            names = s.get("names", {})
+
+            def lab(a):
+                return f"{names[a]} ({a})" if a in names else a
+            parts = [f"{k.replace('_', ' ')}: " + ", ".join(f"{lab(a)} {v:g}" for a, v in rows)
+                     for k, rows in s["leaders"].items() if rows]
+            L.append("- Leaders (top three each): " + "; ".join(parts) + ".")
         if s.get("tontine"):
             t = s["tontine"]
             L.append(f"- Bonds {t['bonds']}; births {t['births']} ({t['births_to_bonded']} to bonded pairs); culled "

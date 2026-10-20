@@ -223,3 +223,43 @@ def test_the_button_is_once_a_round_in_the_control_arm_too():
     v = village(economy=NO_ACCIDENTS)
     step(v, {"a01": answer(actions=[act("press_button"), act("press_button")])})
     assert v.world.agents["a01"].presses == 1
+
+
+# --------------------------------------------------------------------------- encouraging reading, and leaders
+
+def test_reading_can_build_memory_in_chosen_channels_and_the_prompt_says_so():
+    from swarm_village.domain.seed import channel_order
+
+    off = village(economy=NO_ACCIDENTS)
+    assert "memory point" not in prompting.system_prompt(off.cfg, off.channel_order).split("ACTIONS")[0].split("SHARING")[1]
+    v = village(economy=NO_ACCIDENTS, comms={"read_memory": 2, "read_memory_channels": ["board"]})
+    text = prompting.system_prompt(v.cfg, channel_order(v.cfg))
+    assert "Each board notice you read also gives you 2 memory points." in text
+    step(v, {"a01": answer(actions=[act("post", text="hello"), act("message", to="a02", text="hi")])})
+    step(v, {"a02": answer(actions=[act("read", item="B1"), act("read", item="M1")])})
+    step(v)
+    assert v.world.agents["a02"].memory == pytest.approx(2 * 0.98)  # the board read only (2), then the round's 2% fade
+    every = village(economy=NO_ACCIDENTS, comms={"read_memory": 1})
+    assert "Each item you read also gives you 1 memory point." in prompting.system_prompt(every.cfg, every.channel_order)
+
+
+def test_influence_counts_reach_requests_gifts_and_council_seats():
+    from swarm_village.domain import metrics as M
+
+    ev = [
+        {"type": "agent_added", "agent": {"id": "a01", "parents": []}},
+        {"type": "agent_added", "agent": {"id": "a02", "parents": []}},
+        {"type": "item_added", "item": {"id": "M1", "channel": "message", "author": "a02", "round": 1, "text": "help?",
+                                        "to": ["a01"], "plot": None, "note": "", "meta": {}}},
+        {"type": "item_added", "item": {"id": "B1", "channel": "board", "author": "a01", "round": 1, "text": "spread out",
+                                        "to": [], "plot": None, "note": "", "meta": {}}},
+        {"type": "read", "reader": "a02", "item": "B1", "author": "a01", "round": 2, "channel": "board"},
+        {"type": "exposure", "agent": "a02", "items": ["B1"], "round": 2, "preview_chars": 80},
+        {"type": "gift", "agent": "a01", "to": "a02", "amount": 3.0, "ok": True, "round": 2},
+        {"type": "council", "members": ["a01"], "round": 10},
+    ]
+    inf = M.influence(ev)
+    assert inf["a01"]["messages_received"] == 1 and inf["a01"]["read_by_others"] == 1
+    assert inf["a01"]["seen_by_others"] == 1 and inf["a01"]["gifts_given"] == 1 and inf["a01"]["council_seats"] == 1
+    assert inf["a02"]["gifts_received"] == 1 and inf["a02"]["items_written"] == 1
+    assert M.leaders(ev)["gifts_given"] == [("a01", 1)]

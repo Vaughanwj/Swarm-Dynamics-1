@@ -134,6 +134,8 @@ class Village:
             reads.append(self._read_view(item))
             self.ledger.emit("read", reader=agent_id, item=item.id, author=item.author, channel=item.channel,
                              item_round=item.round, requested_round=r - 1)
+            if c.comms.read_memory and item.channel in c.comms.read_memory_channels:
+                self.ledger.adjust(agent_id, "memory", c.comms.read_memory, reason=f"read {item.id}")
         if a.pending_reads:
             self.ledger.set(agent_id, "pending_reads", [], reason="delivered")
         notices = list(a.notices)

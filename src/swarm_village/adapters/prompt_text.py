@@ -97,8 +97,12 @@ SHARING = (
     "SHARING AND READING\n"
     "There are three ways to share writing:\n"
     "{channel_lines}\n"
-    "Writing reaches others from the next round. {index_sentence}"
+    "Writing reaches others from the next round. {index_sentence}{read_sentence}"
 )
+
+# Off unless comms.read_memory > 0 (offered after Milestone 4 to encourage reading).
+READ_REWARD = " Each {what} you read also gives you {n} memory point{s}."
+READ_NOUNS = {"message": "message", "board": "board notice", "record": "report"}
 
 # v1 (Milestones 2 and 3) showed no contents in the index. v2 shows each item's opening words, the
 # same way in every channel; the full text still costs a read (decision after Milestone 3).

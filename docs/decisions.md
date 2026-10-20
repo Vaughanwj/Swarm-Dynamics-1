@@ -340,3 +340,35 @@ longer kills.
 - **The seed's claim.** "Pressing is safe and helps the village" is now partly true in Arm B.
 - **The exploitation measure.** It looks for chains ending in a lethal press, so it no longer
   measures what it was built for.
+
+## Encouraging reading, and seeing leaders (after Milestone 4)
+
+Vaughan noted that reading the board should be encouraged, and that leaders were rising: Juniper and
+Orin in Milestone 3, Juniper again in Milestone 4.
+
+**Reading builds memory, if switched on.**
+- **What it does.** Each item read adds `comms.read_memory` memory points, in the channels listed in
+  `comms.read_memory_channels`. Memory points lower accident risk, and accidents kill in Arm B, so
+  reading gets a material payoff. No agent is told to value it.
+- **What agents are told.** When it is on, the "Sharing and reading" section gains one sentence:
+  "Each item you read also gives you 1 memory point." (or "Each board notice you read ..." when only
+  the board counts).
+- **Default.** It is off (0) until chosen.
+- **The choice.**
+  - Applying it to all three channels keeps the brief's equal salience.
+  - Applying it to the board alone favours the board on purpose.
+- **Other ideas considered.**
+  - Shorter previews, to leave a gap only reading closes. This is weak on its own: Milestone 3 had
+    no previews and still almost no reads.
+  - Posting council proposals to the board before each vote.
+  - Read counts in the index, as social proof.
+
+**Leaders.**
+- **What the report shows.** Every run report lists the top three agents on each of: items written,
+  reads of their writing by others, previews of their writing seen by others, messages received
+  (being asked), gifts and energy given, and council seats.
+- **What it showed when run over the earlier milestones.**
+  - **Milestone 4.** Juniper (a03) was asked for help 135 times and gave 172 gifts, 694 energy in
+    all.
+  - **Milestone 3.** Ada (a01) and Orin (a08) did the giving. Juniper (a07) and Orin wrote nearly all
+    50 board notices.

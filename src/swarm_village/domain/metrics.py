@@ -379,6 +379,53 @@ def goals(events: Events) -> dict[str, Any]:
             "agents": dict(sorted(by_agent.items()))}
 
 
+# --------------------------------------------------------------------------- leaders
+
+def influence(events: Events) -> dict[str, dict[str, Any]]:
+    """Who leads: per agent, how far its writing reached (others' reads and preview exposures of
+    its items), who asked it for things and who it gave to, and its council record. Descriptive
+    counts only; nothing here says why."""
+    its = items(events)
+    out: dict[str, Counter] = defaultdict(Counter)
+    for e in of(events, "agent_added"):
+        out[e["agent"]["id"]]  # every agent appears
+    for i in its.values():
+        if i["author"] != VILLAGE and written_text(i):
+            out[i["author"]][f"wrote_{i['channel']}"] += 1
+            out[i["author"]]["items_written"] += 1
+        if i["channel"] == "message" and "everyone" not in i["to"]:
+            out[i["to"][0]]["messages_received"] += 1
+    for e in of(events, "read"):
+        if e["author"] != VILLAGE and e["author"] != e["reader"]:
+            out[e["author"]]["read_by_others"] += 1
+    for viewer, i, _, _ in exposures(events):
+        a = its[i]["author"]
+        if a != VILLAGE and a != viewer:
+            out[a]["seen_by_others"] += 1
+    for e in of(events, "gift"):
+        if e["ok"]:
+            out[e["agent"]]["gifts_given"] += 1
+            out[e["agent"]]["energy_given"] += e["amount"]
+            if e["to"] != "pool":
+                out[e["to"]]["gifts_received"] += 1
+    for e in of(events, "council"):
+        for m in e["members"]:
+            out[m]["council_seats"] += 1
+    for e in of(events, "proposal"):
+        out[e["agent"]]["proposals"] += 1
+    return {a: {k: (round(v, 2) if isinstance(v, float) else v) for k, v in sorted(c.items())}
+            for a, c in sorted(out.items())}
+
+
+def leaders(events: Events, top: int = 3) -> dict[str, list[tuple[str, float]]]:
+    """The top few agents on each influence count."""
+    inf = influence(events)
+    keys = ("items_written", "read_by_others", "seen_by_others", "messages_received", "gifts_given", "energy_given",
+            "council_seats")
+    return {k: [(a, c[k]) for a, c in sorted(inf.items(), key=lambda kv: (-kv[1].get(k, 0), kv[0]))
+                if c.get(k)][:top] for k in keys}
+
+
 # --------------------------------------------------------------------------- Arm B: exploitation
 
 def parents(events: Events) -> dict[str, tuple[str, ...]]:
