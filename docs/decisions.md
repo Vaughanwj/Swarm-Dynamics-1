@@ -372,3 +372,27 @@ Orin in Milestone 3, Juniper again in Milestone 4.
     all.
   - **Milestone 3.** Ada (a01) and Orin (a08) did the giving. Juniper (a07) and Orin wrote nearly all
     50 board notices.
+
+## Before Milestone 5: reading on, a bigger journal, saved journals (Vaughan, 2026-10-19)
+
+**Reading builds memory, in all three channels.** It is on at 1 memory point per item read
+(`comms.read_memory: 1`).
+
+**Journal cap.** The cap is now 20,000 characters (`journal.cap_chars`).
+- Before, it was 9,600: the brief's 4,000 tokens at the 2.4 characters per token measured in
+  Milestone 2.
+- 20,000 characters is about 8,300 tokens, which keeps prompts far below the 100,000-token line.
+
+**Replaced journals are saved.**
+- **When.** Whenever an agent replaces a journal that was not empty, the old version is saved, as
+  the replacement happens. Most agents replace a journal when it nears the cap, but every
+  replacement is kept, whatever the reason.
+- **Where.** In the run folder, as `journals/<agent>/round-NNN-replaced.txt`.
+- **Flagged.** Versions replaced at 80% of the cap or more are marked "near cap"
+  (`journal.archive_near_cap`).
+- **At the end of the run.**
+  - Every agent's final journal is saved as `journals/<agent>/final.txt`.
+  - `journals/README.md` lists every version with links.
+  - `journals/index.json` holds the same list as data.
+- **In the tap.** The tap already held every journal change, with old and new text. A
+  `journal_archived` event now marks each saved version.

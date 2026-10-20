@@ -15,7 +15,7 @@ def test_every_config_loads_for_its_arms(path):
     for arm in doc.get("arms", ["control", "tontine"]):
         for seed in doc.get("seeds", [1]):
             cfg = YamlConfig().run_config(doc, arm, seed, "t")
-            assert cfg.journal.cap_chars == 9600
+            assert cfg.journal.cap_chars == 20000 and cfg.comms.read_memory == 1
             if doc.get("runtime", {}).get("kind") == "anthropic":
                 assert doc["runtime"]["model"] == "claude-haiku-5-5" and doc["runtime"]["effort"] == "medium"
                 assert "temperature" not in doc["runtime"] and doc["runtime"]["budget_usd"] > 0

@@ -43,6 +43,7 @@ class Village:
         self.last_workers: int | None = None
         self.order: list[str] = []
         self._rules_used = 0  # highest written-rule number given out, so ids are never reused
+        self.archive_queue: list[dict[str, Any]] = []  # replaced journals, for the application to save as files
         self._reset_scratch()
 
     # ------------------------------------------------------------------ founding
@@ -277,6 +278,11 @@ class Village:
             self.ledger.notify(a.id, f"Your journal change was refused: it would have been {len(new)} characters, "
                                      f"over the limit of {cap}. Your journal was not changed.")
             return
+        if d.journal_mode == "replace" and a.journal:
+            entry = {"agent": a.id, "name": a.name, "round": self.world.round, "chars": len(a.journal), "cap": cap,
+                     "near_cap": len(a.journal) >= self.cfg.journal.archive_near_cap * cap, "text": a.journal}
+            self.archive_queue.append(entry)
+            self.ledger.emit("journal_archived", agent=a.id, chars=entry["chars"], near_cap=entry["near_cap"])
         self.ledger.set(a.id, "journal", new, reason=f"journal {d.journal_mode}")
         self.ledger.emit("journal_write", agent=a.id, mode=d.journal_mode, ok=True, chars=len(new), cap=cap)
 

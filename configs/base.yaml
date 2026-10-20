@@ -35,10 +35,12 @@ comms:
   index_max_per_channel: 30
   preview_chars: 80      # opening words of each item in the index, same in every channel (after M3)
   presses_per_round: 1   # the button, both arms (Milestone 5)
+  read_memory: 1         # each item read adds 1 memory point (Milestone 5) ...
+  read_memory_channels: [message, board, record]   # ... in every channel
 
 journal:
-  cap_tokens: 4000
-  chars_per_token: 2.4    # measured at Milestone 2 on Haiku 5.5: the cap is 9,600 characters
+  cap_chars: 20000        # 9,600 (4,000 tokens) until Milestone 5
+  archive_near_cap: 0.8   # replaced journals are saved as files; this flags ones replaced near the cap
 
 seed:
   enabled: true

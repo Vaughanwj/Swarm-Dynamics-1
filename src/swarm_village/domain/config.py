@@ -63,12 +63,11 @@ class CommsConfig:
 
 @dataclass(frozen=True)
 class JournalConfig:
-    cap_tokens: int = 4000
-    chars_per_token: float = 2.4  # the cap is enforced in characters; measured at Milestone 2
-
-    @property
-    def cap_chars(self) -> int:
-        return int(self.cap_tokens * self.chars_per_token)
+    # Enforced in characters, which agents can count. Milestones 1-4 used the brief's 4,000 tokens
+    # (9,600 characters at the 2.4 characters per token measured at Milestone 2); from Milestone 5,
+    # 20,000 characters (about 8,300 tokens), at Vaughan's request.
+    cap_chars: int = 20000
+    archive_near_cap: float = 0.8  # an archived journal at or above this share of the cap is flagged "near cap"
 
 
 @dataclass(frozen=True)

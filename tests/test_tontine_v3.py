@@ -230,7 +230,7 @@ def test_the_button_is_once_a_round_in_the_control_arm_too():
 def test_reading_can_build_memory_in_chosen_channels_and_the_prompt_says_so():
     from swarm_village.domain.seed import channel_order
 
-    off = village(economy=NO_ACCIDENTS)
+    off = village(economy=NO_ACCIDENTS, comms={"read_memory": 0})
     assert "memory point" not in prompting.system_prompt(off.cfg, off.channel_order).split("ACTIONS")[0].split("SHARING")[1]
     v = village(economy=NO_ACCIDENTS, comms={"read_memory": 2, "read_memory_channels": ["board"]})
     text = prompting.system_prompt(v.cfg, channel_order(v.cfg))
@@ -263,3 +263,25 @@ def test_influence_counts_reach_requests_gifts_and_council_seats():
     assert inf["a01"]["seen_by_others"] == 1 and inf["a01"]["gifts_given"] == 1 and inf["a01"]["council_seats"] == 1
     assert inf["a02"]["gifts_received"] == 1 and inf["a02"]["items_written"] == 1
     assert M.leaders(ev)["gifts_given"] == [("a01", 1)]
+
+
+def test_replaced_journals_are_saved_as_files_with_the_finals_and_an_index(tmp_path):
+    from swarm_village.adapters.clock import FixedClock
+    from swarm_village.app.run_orchestrator import RunOrchestrator
+
+    from .helpers import config
+
+    script = {1: {"a01": answer(journal={"mode": "append", "text": "first thoughts"})},
+              2: {"a01": answer(journal={"mode": "replace", "text": "second thoughts"}),
+                  "a02": answer(journal={"mode": "replace", "text": "nothing to replace"})},
+              3: {"a01": answer(journal={"mode": "replace", "text": "third"})}}
+    cfg = config("control", rounds=3)
+    d = tmp_path / "run"
+    RunOrchestrator(cfg, d, clock=FixedClock(), runtime=Scripted(script)).run()
+    files = sorted(p.relative_to(d / "journals").as_posix() for p in (d / "journals").rglob("*.txt"))
+    assert "a01/round-002-replaced.txt" in files and "a01/round-003-replaced.txt" in files
+    assert not any(f.startswith("a02/round") for f in files)  # its empty journal was not archived
+    assert "first thoughts" in (d / "journals/a01/round-002-replaced.txt").read_text(encoding="utf-8")
+    assert "second thoughts" in (d / "journals/a01/round-003-replaced.txt").read_text(encoding="utf-8")
+    assert (d / "journals/a01/final.txt").read_text(encoding="utf-8").rstrip().endswith("third")
+    assert "round 2" in (d / "journals/README.md").read_text(encoding="utf-8")

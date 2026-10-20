@@ -76,7 +76,8 @@ def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ..
         "exploitation": M.exploitation(events) if start["arm"] == "tontine" else None,
         "tontine": tontine_summary(events) if start["arm"] == "tontine" else None,
         "leaders": M.leaders(events),
-        "names": {e["agent"]: e["new"] for e in M.of(events, "state") if e["field"] == "name"},
+        "names": {**{e["agent"]["id"]: e["agent"]["name"] for e in M.of(events, "agent_added") if e["agent"].get("name")},
+                  **{e["agent"]: e["new"] for e in M.of(events, "state") if e["field"] == "name"}},
     }
 
 

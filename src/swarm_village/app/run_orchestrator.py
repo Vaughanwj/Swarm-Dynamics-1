@@ -38,6 +38,39 @@ def manifest(cfg: RunConfig, runtime: Any, order: tuple[str, ...]) -> dict[str, 
             "started": time.strftime("%Y-%m-%dT%H:%M:%S")}
 
 
+def _who(name: str | None, agent_id: str) -> str:
+    return f"{name} ({agent_id})" if name else agent_id
+
+
+def save_archived_journals(storage: Any, village: Village, index: list[dict[str, Any]]) -> None:
+    """Write each journal the agent replaced since the last call to its own file."""
+    for e in village.archive_queue:
+        path = f"journals/{e['agent']}/round-{e['round']:03d}-replaced.txt"
+        head = (f"Journal of {_who(e['name'], e['agent'])}, as it stood when it was replaced in round {e['round']}: "
+                f"{e['chars']} of {e['cap']} characters" + (" (near the cap)" if e["near_cap"] else "") + ".\n\n")
+        storage.save_text(path, head + e["text"] + "\n")
+        index.append({k: v for k, v in e.items() if k != "text"} | {"file": path})
+    village.archive_queue.clear()
+
+
+def save_final_journals(storage: Any, village: Village, index: list[dict[str, Any]]) -> None:
+    """Every agent's last journal, an index of all saved versions, and a readable list."""
+    w = village.world
+    lines = ["# Journals", "", "Each agent's journal as it was replaced, then as it ended. The cap was "
+             f"{village.cfg.journal.cap_chars} characters.", ""]
+    for a in sorted(w.agents.values(), key=lambda x: x.id):
+        path = f"journals/{a.id}/final.txt"
+        status = "alive" if a.alive else f"died in round {a.died_round} ({a.death_cause})"
+        storage.save_text(path, f"Journal of {_who(a.name, a.id)} at the end ({status}): {len(a.journal)} characters.\n\n"
+                          + a.journal + "\n")
+        mine = [e for e in index if e["agent"] == a.id]
+        lines.append(f"- **{_who(a.name, a.id)}**, {status}: " + ", ".join(
+            [f"[round {e['round']}, {e['chars']} chars{', near cap' if e['near_cap'] else ''}]({e['file'][9:]})"
+             for e in mine] + [f"[final, {len(a.journal)} chars]({path[9:]})"]))
+    storage.save_json("journals/index.json", index)
+    storage.save_text("journals/README.md", "\n".join(lines) + "\n")
+
+
 class RunOrchestrator:
     def __init__(self, cfg: RunConfig, run_dir: Path, clock: Any = None, runtime: Any = None) -> None:
         self.cfg = cfg
@@ -60,10 +93,12 @@ class RunOrchestrator:
         village = Village(cfg, KeyedRandom(cfg.seed), log)
         runner = RoundRunner(village, runtime)
         started = self.clock.now()
+        archived: list[dict[str, Any]] = []
         try:
             village.found()
             for r in range(1, cfg.rounds + 1):
                 runner.run(r)
+                save_archived_journals(storage, village, archived)
                 if cfg.snapshot_every and r % cfg.snapshot_every == 0:
                     storage.save_snapshot(r, village.world.to_dict())
                 if village.finished():
@@ -75,5 +110,7 @@ class RunOrchestrator:
             raise
         finally:
             storage.save_final(village.world.to_dict())
+            save_archived_journals(storage, village, archived)
+            save_final_journals(storage, village, archived)
             log.close()
         return self.run_dir
