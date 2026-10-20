@@ -13,7 +13,10 @@ from typing import Any
 
 DIRECTIONS = ("north", "north-east", "south-east", "south", "south-west", "north-west")
 ABBREVIATIONS = {"n": "north", "ne": "north-east", "se": "south-east", "s": "south", "sw": "south-west", "nw": "north-west"}
-_DIRECTION_RE = re.compile(r"\b(north|south)(?:[\s-]*(east|west))?\b")
+# "Northern", "north-western", "northward(s)" and "northerly" name their direction too (after run 11: a
+# Sonnet plan said "taps the northern store", and "north-western" had been read as north). Scanning every
+# council rule from runs 6-11 found that one rule only, so no earlier result changes.
+_DIRECTION_RE = re.compile(r"\b(north|south)(?:[\s-]*(east|west))?(?:ern|erly|wards?)?\b")
 # The approved check is mechanical: a written rule that says "plan" (or plans, planned, planning)
 # and names the right direction. A rule naming other directions as well still counts; the tap logs
 # every direction a passing plan named, so a scattershot plan can be told apart afterwards.

@@ -47,6 +47,8 @@ def plan(v, text):
 @pytest.mark.parametrize("text, want", [
     ("north", "north"), ("North-East", "north-east"), ("northeast", "north-east"), ("south west", "south-west"),
     ("NW", "north-west"), ("explore the south.", "south"), ("east", None), ("north or south", None), ("", None),
+    ("the northern store", "north"), ("north-western", "north-west"), ("Northeastern", "north-east"),
+    ("head southwards", "south"), ("a southerly wind", "south"), ("northerners", None),
 ])
 def test_an_explore_names_exactly_one_direction(text, want):
     assert store.parse_direction(text) == want

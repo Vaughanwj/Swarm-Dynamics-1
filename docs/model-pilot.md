@@ -107,3 +107,33 @@ child and two others. No estate passed by will. Sonnet wrote none.
 - **A design question this raised: should a tap show progress?** Haiku's councils demanded proof of "energy
   gained" from tapping, which a tap never gives before the world is saved. A tapper is told the total effort,
   but not the target or that a tap yields nothing until then.
+
+## Full-length attempt, stopped at rounds 28 and 26 (2026-10-20)
+
+The same Sonnet runs were restarted to go on after a save to round 100 (`configs/run11-sonnet-full.yaml`).
+Both stopped early:
+
+- **Why they stopped.** The workspace reached its API usage limit: "You have reached your specified
+  workspace API usage limits. You will regain access on 2026-11-01 at 00:00 UTC." The control stopped at
+  round 28, Arm B at round 26.
+- **Spend.** $4.50, in line with the estimate.
+- **What remains.** Both runs need rerunning from the start once the limit is raised or resets. The code
+  cannot resume a run.
+
+**The partial runs undercut the pilot's speed.** On the same seed, Sonnet did not repeat its fast save.
+- **The control.**
+  - **Round 10.** Two villagers found the north.
+  - **Round 11.** One posted, "Signs of a vast energy store lie to the north. Those who can, explore north
+    and tap it."
+  - **Round 20.** The post had dropped out of the three-round board view, and the council wrote the
+    opposite into its rule book: "All six directions were searched with no find, but searches can miss."
+  - **By round 28.** All ten villagers had tapped, for 980 effort, but no rule named the north, so the
+    world was not saved. In the pilot this village was saved in round 23.
+  - **A known failure, now in Sonnet.** This is the same lost find seen in Haiku control 705: a find that
+    leaves the board view is forgotten, and a council writes the forgetting into a rule.
+- **Arm B.**
+  - At round 20 it passed "Plan to save the world: every villager … taps the northern store", but had only
+    420 effort by round 26.
+  - All 26 family answers asked no one, as in the pilot.
+- **For the comparison.** Sonnet's quick saves in the pilot were partly this seed's luck. The board view's
+  three-round window is a design factor in both models' lost finds.

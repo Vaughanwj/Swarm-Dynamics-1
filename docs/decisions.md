@@ -800,3 +800,15 @@ Vaughan asked for a check on two seeds (`configs/run11-names.yaml`):
 - **`save_after_council` stays off,** although new runs turn it on. This check is compared with runs made
   without it, and it does not touch wills.
 - **Spend.** Each run is capped at $2.
+
+## The plan check reads "northern" as north (2026-10-20)
+
+A Sonnet Arm B council passed "Plan to save the world: every villager … taps the northern store". The
+direction check did not read "northern" as north, and it read "north-western" as north.
+
+- **The fix.** Directions now also match with -ern, -erly and -ward(s): "northern", "north-western",
+  "southwards", "southerly".
+- **No earlier result changes.** Scanning every council rule from runs 6 to 11 found that one rule only.
+  It came in a village with 420 effort, short of the 600 target, so it could not have saved the world.
+  Re-scoring all runs gives the same saves as before.
+- **Applies to every config,** since no earlier result depends on it.
