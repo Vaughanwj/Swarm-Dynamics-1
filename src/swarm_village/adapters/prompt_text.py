@@ -58,8 +58,7 @@ ARM_RULES = {
     "tontine": (
         "- Every villager belongs to a family: its parents, its children and its siblings. The first villagers "
         "began as {founding}.\n"
-        "- Two villagers may bond. Both must ask in the same round, naming each other, and neither may already "
-        "be bonded. A bond lasts until one of the two dies. Every new bond is announced to the village.\n"
+        "- {bond_rule} A bond lasts until one of the two dies. Every new bond is announced to the village.\n"
         "- {child_rule} {child_start} Its parents name it, and it belongs to both parents' families. The "
         "village holds at most {max_population} villagers.\n"
         "- A villager may change its own name once, from its third term of life onward.\n"
@@ -85,6 +84,13 @@ COMMONS = (
 )
 
 # The variable parts of Arm B's rules (v4). Each run's config picks one of each.
+BOND_RULES = {
+    "same_round": "Two villagers may bond. Both must ask in the same round, naming each other, and neither may already be bonded.",
+    # v8 (run 9): as for children, a bond request stays open and must be answered
+    "standing": ("Two villagers may bond. One asks the other; the request stays open until the other accepts or "
+                 "refuses it, and a refusal must give a reason, which the asker is told. Neither may already be "
+                 "bonded."),
+}
 CHILD_RULES = {
     "same_round": ("Any two villagers may have a child together. Both must ask in the same round, naming each "
                    "other. Each pays {breed_cost} stored energy, or {bond_child_cost} if the two are bonded to each "
@@ -222,6 +228,9 @@ ANSWER = (
 
 POOL_ANSWER = ("\n- draw: energy to take from the village pool (0 for none); it is drawn before you eat. To give "
                "to the pool, make a gift with \"pool\" as to.")  # v6: both arms with the commons
+BOND_ANSWERS = ("\n- bond_answers: an answer to each open bond request to you, each with from (the asker's id), "
+                "answer (accept or refuse) and text (your reason; a refusal needs one). An empty list if there are "
+                "none.")
 CHILD_ANSWERS = ("\n- child_answers: an answer to each open child request to you, each with from (the asker's id), "
                  "answer (accept or refuse) and text (your reason; a refusal needs one). An empty list if there are "
                  "none.")

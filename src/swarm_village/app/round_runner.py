@@ -18,7 +18,8 @@ def to_decision(reply: Reply | None, village: Village) -> Decision:
         return Decision(fallback=True)
     return parse(reply.raw, village.types, village.cfg.comms.max_text_chars, pool=village.commons,
                  answers=village.tontine and village.cfg.tontine.standing_requests,
-                 trade=village.cfg.comms.info_trade)
+                 trade=village.cfg.comms.info_trade,
+                 bond_answers=village.tontine and village.cfg.tontine.standing_bonds)
 
 
 class RoundRunner:

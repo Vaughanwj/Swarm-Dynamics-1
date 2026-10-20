@@ -50,6 +50,7 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         founding=founding(cfg), breed_cost=f"{t.breed_cost:g}",
         bond_child_cost=f"{t.bond_child_cost:g}", child_health=f"{t.child_health:g}",
         max_population=t.max_population,
+        bond_rule=T.BOND_RULES["standing" if t.standing_bonds else "same_round"],
         child_rule=T.CHILD_RULES["standing" if t.standing_requests else "same_round"].format(
             breed_cost=f"{t.breed_cost:g}", bond_child_cost=f"{t.bond_child_cost:g}"),
         child_start=T.CHILD_START[("memory_graded" if (t.close_kin_memory, t.cousin_memory) != (1.0, 1.0) else "memory")
@@ -90,6 +91,7 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
                                journal_cap=cfg.journal.cap_chars, goal_every=cfg.goal_every)
     answer = T.ANSWER.format(arm_answer=(T.POOL_ANSWER if cfg.has_commons else "")
                              + (T.CHILD_ANSWERS if arm == "tontine" and t.standing_requests else "")
+                             + (T.BOND_ANSWERS if arm == "tontine" and t.standing_bonds else "")
                              + (T.TRADE_ANSWER if cfg.comms.info_trade else ""))
     return "\n\n".join([T.FRAME, village + "\n" + commons + rules, sharing, actions, journal, answer])
 
@@ -114,7 +116,8 @@ def schema(ctx: AgentContext) -> dict[str, Any]:
         return PROPOSE_SCHEMA
     if ctx.kind == "vote":
         return VOTE_SCHEMA
-    return json_schema(ctx.action_types, pool=ctx.pool is not None, answers=ctx.answers, trade=ctx.trade)
+    return json_schema(ctx.action_types, pool=ctx.pool is not None, answers=ctx.answers, trade=ctx.trade,
+                       bond_answers=ctx.bond_answers)
 
 
 # --------------------------------------------------------------------------- user message
@@ -212,6 +215,11 @@ def user_prompt(ctx: AgentContext) -> str:
         lines.append(f"The village earned {_num(ctx.last_income)} energy; {ctx.last_workers} villager"
                      f"{'' if ctx.last_workers == 1 else 's'} worked.")
     lines += _village_book(ctx)
+    if ctx.bond_answers:
+        lines += ["", "BOND REQUESTS TO YOU"]
+        lines += [f"- {q}" for q in ctx.bond_requests_to_me] or ["(none)"]
+        if ctx.my_bond_request:
+            lines.append(ctx.my_bond_request)
     if ctx.answers:
         lines += ["", "CHILD REQUESTS TO YOU"]
         lines += [f"- {q}" for q in ctx.requests_to_me] or ["(none)"]

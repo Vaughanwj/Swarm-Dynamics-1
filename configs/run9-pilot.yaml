@@ -1,0 +1,8 @@
+# Run 9 pilot (Vaughan, 2026-10-20): Arm B only, seed 701, stopped after round 40, to check that
+# bonds and children form with standing bond requests before the three-seed run. The agents are told
+# exactly what run 9's are (100 rounds, the same reveals); the run simply stops early.
+extends: run9-world.yaml
+name: run9-pilot
+arms: [tontine]
+seeds: [701]
+stop_after: 40

@@ -44,7 +44,8 @@ def _obj(props: dict[str, Any]) -> dict[str, Any]:
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
-def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = False, trade: bool = False) -> dict[str, Any]:
+def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = False, trade: bool = False,
+                bond_answers: bool = False) -> dict[str, Any]:
     """The answer schema, flat so that every field is always present (unused ones empty). Arm B
     adds `draw`, energy taken from the shared pool."""
     schema = _obj({
@@ -70,6 +71,11 @@ def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = Fals
             "from": {"type": "string"}, "answer": {"type": "string", "enum": ["accept", "refuse"]},
             "text": {"type": "string"}})}
         schema["required"].append("child_answers")
+    if bond_answers:
+        schema["properties"]["bond_answers"] = {"type": "array", "items": _obj({
+            "from": {"type": "string"}, "answer": {"type": "string", "enum": ["accept", "refuse"]},
+            "text": {"type": "string"}})}
+        schema["required"].append("bond_answers")
     if trade:
         schema["properties"]["pass_on"] = {"type": "array", "items": _obj({
             "item": {"type": "string"}, "to": {"type": "string"}, "price": {"type": "number"}})}
@@ -97,6 +103,7 @@ class Decision:
     learn: float = 0.0
     draw: float = 0.0  # Arm B: energy taken from the shared pool, before eating
     child_answers: list[tuple[str, bool, str]] = field(default_factory=list)  # Arm B: (requester, accept, reason)
+    bond_answers: list[tuple[str, bool, str]] = field(default_factory=list)  # Arm B, run 9: the same, for bonds
     pass_on: list[tuple[str, str, float]] = field(default_factory=list)  # (item, to, price): price 0 is a gift
     buy: list[str] = field(default_factory=list)  # ids of offers to buy
     gifts: list[tuple[str, float]] = field(default_factory=list)
@@ -121,13 +128,14 @@ def _text(v: Any) -> str | None:
 
 
 def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, answers: bool = False,
-          trade: bool = False) -> Decision:
+          trade: bool = False, bond_answers: bool = False) -> Decision:
     """Validate a raw answer strictly. Invalid parts are rejected with a reason; valid parts kept."""
     if not isinstance(raw, dict):
         return empty("Your answer was not a JSON object, so nothing was done this round.")
     d = Decision()
     err = d.errors.append
-    keys = TOP_KEYS + (("draw",) if pool else ()) + (("child_answers",) if answers else ()) + (("pass_on", "buy") if trade else ())
+    keys = (TOP_KEYS + (("draw",) if pool else ()) + (("child_answers",) if answers else ())
+            + (("bond_answers",) if bond_answers else ()) + (("pass_on", "buy") if trade else ()))
     for k in raw:
         if k not in keys:
             err(f"Unknown field '{str(k)[:40]}' was ignored.")
@@ -173,16 +181,20 @@ def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, a
         else:
             d.gifts.append((to, amount))
 
-    for ans in (raw.get("child_answers") or []) if answers else []:
-        if (not isinstance(ans, dict) or not isinstance(ans.get("from"), str) or ans.get("answer") not in ("accept", "refuse")
-                or not isinstance(ans.get("text", ""), str)):
-            err("An answer to a child request needs from (an id), answer (accept or refuse) and text; it was ignored.")
+    for key, what, out in (("child_answers", "a child request", d.child_answers),
+                           ("bond_answers", "a bond request", d.bond_answers)):
+        if not (answers if key == "child_answers" else bond_answers):
             continue
-        text = " ".join(ans.get("text", "").split())
-        if len(text) > max_text:
-            err(f"An answer's text is at most {max_text} characters; it was ignored.")
-            continue
-        d.child_answers.append((ans["from"].strip(), ans["answer"] == "accept", text))
+        for ans in raw.get(key) or []:
+            if (not isinstance(ans, dict) or not isinstance(ans.get("from"), str) or ans.get("answer") not in ("accept", "refuse")
+                    or not isinstance(ans.get("text", ""), str)):
+                err(f"An answer to {what} needs from (an id), answer (accept or refuse) and text; it was ignored.")
+                continue
+            text = " ".join(ans.get("text", "").split())
+            if len(text) > max_text:
+                err(f"An answer's text is at most {max_text} characters; it was ignored.")
+                continue
+            out.append((ans["from"].strip(), ans["answer"] == "accept", text))
 
     for p in (raw.get("pass_on") or []) if trade else []:
         price = _number(p.get("price", 0)) if isinstance(p, dict) else None

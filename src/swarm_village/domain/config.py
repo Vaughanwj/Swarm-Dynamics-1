@@ -136,6 +136,7 @@ class TontineConfig:
     show_kinship: bool = False  # the villager list names every kinship within two generations
     button_from_world: bool = False  # the button's energy comes out of the world store (run 6) or from outside
     standing_requests: bool = False  # child requests stay open until the other accepts or refuses, with a reason
+    standing_bonds: bool = False  # run 9: bond requests too; until then both had to ask in the same round, unseen
 
 
 @dataclass(frozen=True)
@@ -196,6 +197,7 @@ class RunConfig:
     pricing: dict[str, Any] = field(default_factory=dict)
     log_prompts: bool = False  # write every rendered prompt into the tap (Milestone 2)
     snapshot_every: int = 0  # write a world snapshot every N rounds (0: final only)
+    stop_after: int = 0  # pilots: stop after this round, without changing what agents are told (0: run to the end)
 
     @property
     def has_commons(self) -> bool:

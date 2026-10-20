@@ -89,6 +89,7 @@ class World:
     rules: list[dict[str, Any]] = field(default_factory=list)  # the commons: the rule book (domain/governance.py)
     energy: float | None = None  # run 6 on: the hidden world store income draws from (both arms with the commons)
     requests: list[dict[str, Any]] = field(default_factory=list)  # Arm B: open child requests
+    bond_requests: list[dict[str, Any]] = field(default_factory=list)  # Arm B, run 9: open bond requests
     offers: list[dict[str, Any]] = field(default_factory=list)  # items offered for a price, shown once
     # Run 7: the larger store (domain/store.py). Its direction is hidden from agents.
     store_direction: str | None = None
@@ -121,6 +122,7 @@ class World:
             "rules": copy.deepcopy(self.rules),
             "energy": self.energy,
             "requests": copy.deepcopy(self.requests),
+            "bond_requests": copy.deepcopy(self.bond_requests),
             "offers": copy.deepcopy(self.offers),
             "store_direction": self.store_direction,
             "effort": self.effort,
@@ -158,7 +160,7 @@ def item_from_dict(d: dict[str, Any]) -> Item:
 
 NUMERIC = {"health", "energy", "memory"}
 AGENT_FIELDS = {f.name for f in fields(Agent)} - {"id", "born_round", "parents"}
-WORLD_FIELDS = {"round", "fertility", "public_notices", "pool", "rules", "energy", "requests", "offers",
+WORLD_FIELDS = {"round", "fertility", "public_notices", "pool", "rules", "energy", "requests", "offers", "bond_requests",
                 "store_direction", "effort", "tappers", "saved_round"}
 
 

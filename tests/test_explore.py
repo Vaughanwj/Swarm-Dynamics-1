@@ -306,14 +306,15 @@ def test_once_saved_the_world_no_longer_ends():
 
 # --------------------------------------------------------------------------- run 9: own writing, a search can miss
 
-def test_run9_config_adds_only_own_items_and_the_hint_on_three_seeds():
+def test_run9_config_adds_own_items_the_hint_and_standing_bonds_on_three_seeds():
     run8, run9 = (load_with_base(ROOT / "configs" / f"run{n}-world.yaml") for n in (8, 9))
     assert run9["seeds"] == [701, 702, 703] and run9["arms"] == ["control", "tontine"]
     a, b = (YamlConfig().run_config(d, "control", 701, "t") for d in (run8, run9))
     from dataclasses import replace
     assert b.comms.show_own and b.commons.explore_hint and b.prompt.version == "v8"
     assert replace(b.comms, show_own=False) == a.comms and replace(b.commons, explore_hint=False) == a.commons
-    assert (b.tontine, b.economy, b.rounds) == (a.tontine, a.economy, a.rounds)
+    assert b.tontine.standing_bonds and replace(b.tontine, standing_bonds=False) == a.tontine
+    assert (b.economy, b.rounds) == (a.economy, a.rounds)
 
 
 def own(arm="control"):

@@ -126,6 +126,7 @@ class Village:
         self._notes: dict[str, str] = {}
         self._children: dict[str, tuple[str, str]] = {}  # agent -> (partner, proposed name)
         self._bonds: dict[str, str] = {}  # agent -> the villager it asked to bond with
+        self._bonds_accepted: list[dict[str, Any]] = []  # run 9: open bond requests accepted this round
         self._accepted: list[tuple[dict[str, Any], str]] = []  # open requests accepted this round, with the name offered
         self._presses: Counter = Counter()  # agent -> presses this round
         self._drawn: Counter = Counter()  # agent -> energy drawn from the pool this round
@@ -250,6 +251,11 @@ class Village:
             my_request=next((f"Your request to have a child with {self._label(q['to'])} (round {q['round']}) has not "
                              "been answered yet." for q in w.requests if q["from"] == agent_id), None),
             answers=self.tontine and c.tontine.standing_requests,
+            bond_answers=self.tontine and c.tontine.standing_bonds,
+            bond_requests_to_me=[f"{self._label(q['from'])} asked to bond with you in round {q['round']}. The request "
+                                 "stays open until you accept or refuse it." for q in w.bond_requests if q["to"] == agent_id],
+            my_bond_request=next((f"Your request to bond with {self._label(q['to'])} (round {q['round']}) has not been "
+                                  "answered yet." for q in w.bond_requests if q["from"] == agent_id), None),
             trade=c.comms.info_trade,
             learned=self.learned_now(),
             offers_to_me=[f"{o['id']}: {self._label(o['from'])} offers {o['item']} "
@@ -317,6 +323,7 @@ class Village:
             self._draw(a, d.draw, tally)
         if self.tontine:
             self._answer_requests(a, d.child_answers, tally)
+            self._answer_bonds(a, d.bond_answers, tally)
         self._allocate(a, "eat", d.eat, tally)
         self._allocate(a, "learn", d.learn, tally)
         for to, amount in d.gifts:
@@ -539,6 +546,10 @@ class Village:
             target = w.agents.get(act.to)
             if target is None or not target.alive or act.to == a.id:
                 return f"Your request to bond was not made: '{act.to[:20]}' is not another living villager's id."
+            if self.cfg.tontine.standing_bonds:
+                if target.bond:
+                    return f"Your request to bond was not made: {self._label(act.to)} is already bonded."
+                return self._request_bond(a, act.to)
             self._bonds[a.id] = act.to
             return None
         if t == "child" and self.tontine:
@@ -668,6 +679,9 @@ class Village:
         if self.world.requests and any(q["from"] in ids or q["to"] in ids for q in self.world.requests):
             self.ledger.set_world("requests", [q for q in self.world.requests if q["from"] not in ids and q["to"] not in ids],
                                   reason="death")
+        if any(q["from"] in ids or q["to"] in ids for q in self.world.bond_requests):
+            self.ledger.set_world("bond_requests", [q for q in self.world.bond_requests
+                                                    if q["from"] not in ids and q["to"] not in ids], reason="death")
         living = sorted(a.id for a in self.world.living())
         for i in ids:
             estate = self.world.agents[i].energy
@@ -894,6 +908,43 @@ class Village:
         self.ledger.emit("child_request", agent=a.id, partner=to, ok=True, opened=True)
         return None
 
+    def _request_bond(self, a: Agent, to: str) -> str | None:
+        """Run 9: open a standing bond request, or accept the other's open request to me."""
+        theirs = next((q for q in self.world.bond_requests if q["from"] == to and q["to"] == a.id), None)
+        if theirs is not None:
+            if not any(x is theirs for x in self._bonds_accepted):
+                self._bonds_accepted.append(theirs)
+            self.ledger.emit("bond_answer", agent=a.id, requester=to, accept=True, text="", via="request")
+            return None
+        mine = {"from": a.id, "to": to, "round": self.world.round}
+        self.ledger.set_world("bond_requests", [q for q in self.world.bond_requests if q["from"] != a.id] + [mine],
+                              reason="request")
+        self.ledger.emit("bond_request", agent=a.id, partner=to, ok=True, opened=True)
+        return None
+
+    def _answer_bonds(self, a: Agent, answers: list, tally: Counter) -> None:
+        if not self.cfg.tontine.standing_bonds:
+            return
+        for frm, accept, text in answers:
+            q = next((x for x in self.world.bond_requests if x["from"] == frm and x["to"] == a.id), None)
+            if q is None:
+                self.ledger.notify(a.id, f"There is no open bond request from '{frm[:20]}' to you; your answer was not used.")
+                tally["rejected"] += 1
+                continue
+            if accept:
+                if not any(x is q for x in self._bonds_accepted):
+                    self._bonds_accepted.append(q)
+                self.ledger.emit("bond_answer", agent=a.id, requester=frm, accept=True, text=text)
+                continue
+            if not text.strip():
+                self.ledger.notify(a.id, f"A refusal needs a reason in text; {self._label(frm)}'s bond request stays open.")
+                tally["rejected"] += 1
+                continue
+            self.ledger.set_world("bond_requests", [x for x in self.world.bond_requests if x is not q and x != q],
+                                  reason="refused")
+            self.ledger.emit("bond_answer", agent=a.id, requester=frm, accept=False, text=text)
+            self.ledger.notify(frm, f"{a.label()} refused your request to bond, saying: \"{text}\"")
+
     def _answer_requests(self, a: Agent, answers: list, tally: Counter) -> None:
         if not self.cfg.tontine.standing_requests:
             return
@@ -917,8 +968,28 @@ class Village:
             self.ledger.notify(frm, f"{a.label()} refused your request for a child, saying: \"{text}\"")
 
     def _form_bonds(self) -> None:
-        """Mutual requests between two unbonded, living villagers become bonds."""
+        """Mutual requests between two unbonded, living villagers become bonds. Run 9: accepted standing
+        requests do; any other open request to or from either partner then lapses."""
         w = self.world
+        if self.cfg.tontine.standing_bonds:
+            for q in self._bonds_accepted:
+                if q not in w.bond_requests:
+                    continue  # already settled this round
+                a, p = w.agents[q["from"]], w.agents[q["to"]]
+                if not (a.alive and p.alive) or a.bond or p.bond:
+                    continue
+                self.ledger.set(a.id, "bond", p.id, reason="bond")
+                self.ledger.set(p.id, "bond", a.id, reason="bond")
+                self.ledger.emit("bond", agents=[a.id, p.id])
+                self.ledger.announce(f"{a.label()} and {p.label()} have bonded.")
+                lapsed = [x for x in w.bond_requests if x is not q and {x["from"], x["to"]} & {a.id, p.id}]
+                self.ledger.set_world("bond_requests", [x for x in w.bond_requests if x is not q and x not in lapsed],
+                                      reason="bonded")
+                for x in lapsed:
+                    if w.agents[x["from"]].alive and x["from"] not in (a.id, p.id):
+                        self.ledger.notify(x["from"], f"Your request to bond with {self._label(x['to'])} lapsed: "
+                                                      f"{self._label(x['to'])} has bonded.")
+            return
         done: set[str] = set()
         for a_id, p_id in self._bonds.items():
             if a_id in done:

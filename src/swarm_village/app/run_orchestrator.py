@@ -97,7 +97,8 @@ class RunOrchestrator:
         try:
             village.found()
             r = 0
-            while r < village.last_round():  # a saved world pauses the run a few rounds later (run 7)
+            last = lambda: min(village.last_round(), cfg.stop_after) if cfg.stop_after else village.last_round()  # noqa: E731
+            while r < last():  # a saved world pauses the run a few rounds later (run 7); a pilot stops early
                 r += 1
                 runner.run(r)
                 save_archived_journals(storage, village, archived)
@@ -106,8 +107,9 @@ class RunOrchestrator:
                 if village.finished():
                     log.record("run_extinct", round=r)
                     break
-            if village.world.saved_round is not None and village.world.alive_any() and r == village.last_round():
-                log.record("run_paused", round=r, saved_round=village.world.saved_round)
+            if village.world.alive_any() and r == last() and r < cfg.rounds and not village.finished():
+                log.record("run_paused", round=r, saved_round=village.world.saved_round,
+                           reason="saved" if village.world.saved_round is not None and r == village.last_round() else "stop_after")
             log.record("run_end", round=village.world.round, seconds=round(self.clock.now() - started, 1))
         except Exception as e:
             log.record("run_error", round=village.world.round, error=f"{type(e).__name__}: {e}")

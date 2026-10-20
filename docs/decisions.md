@@ -605,5 +605,19 @@ not being recorded, and the council wrote that belief into a rule. Vaughan decid
 3. **Three seeds:** 701 (as in runs 7 and 8), 702 and 703, both arms each. The store's direction, the
    plots and the channel order change with the seed.
 
-**Prompt v8.** The two sentences and the "(yours)" mark are new frozen text. Configured in
-`configs/run9-world.yaml`, which extends run 8's.
+4. **Bond requests stand until answered** (`tontine.standing_bonds`), as child requests already do.
+   The villager asked sees "X asked to bond with you in round N" every round until it accepts or
+   refuses, and a refusal must give a reason, which the asker is told. Asking back also accepts. When
+   a bond forms, any other open bond request to or from either partner lapses, and its asker is told.
+   - **Why.** Runs 7 and 8 formed no bonds and no children, though every founder set a family goal.
+     Until now both villagers had to ask in the same round, and a one-sided request was shown only to
+     the asker: Brook asked Ash 71 times in run 7, and Ash never knew. In run 6 bonds were arranged by
+     message; once the villages stopped talking, they could not form.
+   - **Kept as they are**, at Vaughan's choice: partner-only inheritance, and bonds between kin. In
+     runs 7 and 8 bonds were sought with siblings, as wills; the seeds will show whether that persists.
+5. **A pilot first** (`configs/run9-pilot.yaml`): Arm B only, seed 701, stopped after round 40 (a new
+   `stop_after` setting). Agents are told exactly what run 9's are; the run simply ends early. If bonds
+   and children form, the three-seed run follows.
+
+**Prompt v8.** The two sentences, the "(yours)" mark, the standing bond rule and the `bond_answers`
+field are new frozen text. Configured in `configs/run9-world.yaml`, which extends run 8's.

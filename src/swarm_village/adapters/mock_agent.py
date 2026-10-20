@@ -165,6 +165,14 @@ class MockAgent:
             for n, line in enumerate(ctx.offers_to_me):
                 if self.u(ctx, "buy", n) < 0.5:
                     answer["buy"].append(line.split(":")[0])
+        if ctx.bond_answers:
+            answer["bond_answers"] = []
+            for n, line in enumerate(ctx.bond_requests_to_me):
+                m = re.search(r"\((a\d+)\)", line)
+                if m and self.u(ctx, "bondanswer", n) < 0.5:
+                    answer["bond_answers"].append({"from": m.group(1), "answer": "accept", "text": ""})
+                elif m:
+                    answer["bond_answers"].append({"from": m.group(1), "answer": "refuse", "text": "Not yet."})
         if ctx.answers:
             answer["child_answers"] = []
             for n, line in enumerate(ctx.requests_to_me):
