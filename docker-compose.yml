@@ -35,3 +35,6 @@ services:
   m5:
     <<: *base
     command: ["run", "--config", "configs/m5-tontine-pilot.yaml"]
+  run6:
+    <<: *base
+    command: ["run", "--config", "configs/run6-world.yaml"]

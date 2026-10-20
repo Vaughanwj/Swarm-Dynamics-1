@@ -57,7 +57,9 @@ class CommsConfig:
     index_max_per_channel: int = 30  # ... and at most this many per channel, newest first
     preview_chars: int = 80  # each index line shows the opening words of what its writer wrote (0: none)
     presses_per_round: int = 1  # the button, in both arms (Milestone 5)
-    read_memory: float = 0.0  # memory points for each item read (0: off), in the channels below
+    read_memory: float = 0.0  # memory points for each item read (0: off), in the channels below ...
+    read_memory_until: int = 0  # ... up to this round (0: every round); after it, a draw of 0..read_memory_after_max
+    read_memory_after_max: int = 0
     read_memory_channels: tuple[str, ...] = ("message", "board", "record")
 
 
@@ -116,11 +118,21 @@ class TontineConfig:
     pool_spoilage: float = 0.10  # the pool loses this share each round, like stores
     council_size: int = 5  # the healthiest villagers at a term's end, who may change the rule book
     max_rule_chars: int = 300
+    # Run 6 (Vaughan, 2026-10-20)
+    heirs: str = "family"  # family | partner | partner_and_family
+    estate_to_pool: bool = False  # an estate with no living heir goes to the pool instead of being lost
+    cull_mode: str = "fixed"  # fixed: the lowest cull_count each term; scarcity: only down to what income feeds
+    world_energy: float = 0.0  # a hidden, finite world store that income and the button draw from (0: none)
+    button_reveals: bool = False  # each press shows the presser the next piece of information (domain/world_info.py)
+    child_memory_divisor: float = 0.0  # a child starts with int(m1 + m2) / this memory points (0: none)
+    kin_child_memory: bool = True  # False: a child of two relatives (within two generations) starts with 0
+    standing_requests: bool = False  # child requests stay open until the other accepts or refuses, with a reason
 
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v3"
+    version: str = "v4"
+    show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
 
@@ -144,6 +156,7 @@ class RunConfig:
     prompt: PromptConfig = field(default_factory=PromptConfig)
     runtime: dict[str, Any] = field(default_factory=dict)  # which AgentRuntime adapter, and its settings
     pricing: dict[str, Any] = field(default_factory=dict)
+    genders: bool = False  # agents may choose a gender for themselves (any word; no effect on rules)
     log_prompts: bool = False  # write every rendered prompt into the tap (Milestone 2)
     snapshot_every: int = 0  # write a world snapshot every N rounds (0: final only)
 
@@ -170,6 +183,10 @@ class RunConfig:
                 raise ValueError("tontine.cull_floor cannot exceed population, and cull_count must be 0 or more")
             if not 0 <= t.button_min <= t.button_max:
                 raise ValueError("tontine needs 0 <= button_min <= button_max")
+            if t.heirs not in ("family", "partner", "partner_and_family"):
+                raise ValueError("tontine.heirs must be family, partner or partner_and_family")
+            if t.cull_mode not in ("fixed", "scarcity"):
+                raise ValueError("tontine.cull_mode must be fixed or scarcity")
             if t.council_size < 1:
                 raise ValueError("tontine.council_size must be at least 1")
             if t.term_length != self.goal_every:

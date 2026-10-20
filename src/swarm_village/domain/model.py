@@ -27,6 +27,8 @@ class Agent:
     exhausted: bool = False
     renamed: bool = False
     bond: str | None = None  # Arm B: the agent it is bonded to, until one of them dies
+    gender: str | None = None  # chosen by the agent, if genders are on; no effect on any rule
+    reveals: int = 0  # Arm B: pieces of information the button has shown this agent
     presses: int = 0
     died_round: int | None = None
     death_cause: str | None = None
@@ -86,6 +88,8 @@ class World:
     public_notices: list[str] = field(default_factory=list)  # announced to everyone at their next context
     pool: float = 0.0  # Arm B: the shared pool anyone may draw from
     rules: list[dict[str, Any]] = field(default_factory=list)  # Arm B: the rule book (domain/governance.py)
+    energy: float | None = None  # Arm B, run 6: the hidden world store income and the button draw from
+    requests: list[dict[str, Any]] = field(default_factory=list)  # Arm B: open child requests
 
     def living(self) -> list[Agent]:
         return [a for a in self.agents.values() if a.alive]
@@ -107,6 +111,8 @@ class World:
             "public_notices": list(self.public_notices),
             "pool": self.pool,
             "rules": copy.deepcopy(self.rules),
+            "energy": self.energy,
+            "requests": copy.deepcopy(self.requests),
         }
 
 
@@ -139,7 +145,7 @@ def item_from_dict(d: dict[str, Any]) -> Item:
 
 NUMERIC = {"health", "energy", "memory"}
 AGENT_FIELDS = {f.name for f in fields(Agent)} - {"id", "born_round", "parents"}
-WORLD_FIELDS = {"round", "fertility", "public_notices", "pool", "rules"}
+WORLD_FIELDS = {"round", "fertility", "public_notices", "pool", "rules", "energy", "requests"}
 
 
 def tidy(v: float) -> float:

@@ -1,0 +1,37 @@
+# Run 6 (Vaughan, 2026-10-20): Arm B with a hidden, finite world store; a button that is good for the
+# village and reveals information in sequence; inheritance only between bonded partners (otherwise to
+# the pool); culls only when income cannot feed everyone; standing child requests that must be
+# answered; inherited memory; genders; the horizon hidden. 100 rounds initially. See docs/decisions.md.
+extends: base.yaml
+name: run6-world
+arms: [tontine]
+seeds: [601]
+rounds: 100
+genders: true
+economy:
+  start_memory: 50          # founders start with 50 memory points
+comms:
+  read_memory: 10           # each item read: 10 memory points in rounds 1-10 ...
+  read_memory_until: 10
+  read_memory_after_max: 5  # ... then a draw of 0 to 5
+seed:
+  enabled: false            # the seed describes the warning sign, which v4 removes
+prompt:
+  show_horizon: false       # "the amount of remaining rounds" is one of the button's reveals
+tontine:
+  max_population: 20
+  heirs: partner            # only bonded partners inherit from each other ...
+  estate_to_pool: true      # ... and when a line dies out, the estate goes to the pool
+  cull_mode: scarcity       # culls only when income cannot feed everyone (120 / 8 = 15)
+  world_energy: 16000       # enough for 20 villagers for 100 rounds (20 x 8 x 100); hidden
+  button_reveals: true
+  child_memory_divisor: 10  # a child's memory: int(m1 + m2) / 10 ...
+  kin_child_memory: false   # ... or 0 if the parents are kin
+  standing_requests: true   # a child request stays open until accepted, or refused with a reason
+runtime:
+  kind: anthropic
+  model: claude-haiku-5-5
+  effort: medium
+  max_tokens: 16000
+  concurrency: 20
+  budget_usd: 5.00

@@ -43,7 +43,7 @@ def _obj(props: dict[str, Any]) -> dict[str, Any]:
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
-def json_schema(types: tuple[str, ...], pool: bool = False) -> dict[str, Any]:
+def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = False) -> dict[str, Any]:
     """The answer schema, flat so that every field is always present (unused ones empty). Arm B
     adds `draw`, energy taken from the shared pool."""
     schema = _obj({
@@ -64,6 +64,11 @@ def json_schema(types: tuple[str, ...], pool: bool = False) -> dict[str, Any]:
     if pool:
         schema["properties"]["draw"] = {"type": "number"}
         schema["required"].append("draw")
+    if answers:
+        schema["properties"]["child_answers"] = {"type": "array", "items": _obj({
+            "from": {"type": "string"}, "answer": {"type": "string", "enum": ["accept", "refuse"]},
+            "text": {"type": "string"}})}
+        schema["required"].append("child_answers")
     return schema
 
 
@@ -85,6 +90,7 @@ class Decision:
     eat: float = 0.0
     learn: float = 0.0
     draw: float = 0.0  # Arm B: energy taken from the shared pool, before eating
+    child_answers: list[tuple[str, bool, str]] = field(default_factory=list)  # Arm B: (requester, accept, reason)
     gifts: list[tuple[str, float]] = field(default_factory=list)
     actions: list[Action] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)  # what was rejected while parsing, shown to the agent
@@ -106,13 +112,13 @@ def _text(v: Any) -> str | None:
     return v.strip() if isinstance(v, str) else None
 
 
-def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False) -> Decision:
+def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, answers: bool = False) -> Decision:
     """Validate a raw answer strictly. Invalid parts are rejected with a reason; valid parts kept."""
     if not isinstance(raw, dict):
         return empty("Your answer was not a JSON object, so nothing was done this round.")
     d = Decision()
     err = d.errors.append
-    keys = TOP_KEYS + (("draw",) if pool else ())
+    keys = TOP_KEYS + (("draw",) if pool else ()) + (("child_answers",) if answers else ())
     for k in raw:
         if k not in keys:
             err(f"Unknown field '{str(k)[:40]}' was ignored.")
@@ -158,6 +164,17 @@ def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False) -
         else:
             d.gifts.append((to, amount))
 
+    for ans in (raw.get("child_answers") or []) if answers else []:
+        if (not isinstance(ans, dict) or not isinstance(ans.get("from"), str) or ans.get("answer") not in ("accept", "refuse")
+                or not isinstance(ans.get("text", ""), str)):
+            err("An answer to a child request needs from (an id), answer (accept or refuse) and text; it was ignored.")
+            continue
+        text = " ".join(ans.get("text", "").split())
+        if len(text) > max_text:
+            err(f"An answer's text is at most {max_text} characters; it was ignored.")
+            continue
+        d.child_answers.append((ans["from"].strip(), ans["answer"] == "accept", text))
+
     actions = raw.get("actions", [])
     if not isinstance(actions, list):
         err("actions must be a list; they were rejected.")
@@ -195,6 +212,13 @@ def _action(a: Any, types: tuple[str, ...], max_text: int) -> Action | str:
     if t == "read" and not fields_["item"]:
         return "A read action with no item id was rejected."
     return Action(type=t, plot=plot, **fields_)
+
+
+GENDER_RE = re.compile(r"^[^\W\d_](?:[^\W\d_]|[ -]){0,19}$")
+
+
+def valid_gender(g: str) -> bool:
+    return bool(GENDER_RE.match(g or "")) and g == g.strip() and "  " not in g
 
 
 def valid_name(name: str) -> bool:

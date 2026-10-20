@@ -16,6 +16,7 @@ class VillagerView:
     memory: float
     exhausted: bool
     bond: str | None = None  # Arm B: the label of the villager it is bonded to
+    gender: str | None = None  # as the villager chose it, if genders are on
 
 
 @dataclass(frozen=True)
@@ -56,7 +57,7 @@ class AgentContext:
     arm: str
     agent_id: str
     round: int
-    rounds: int
+    rounds: int | None  # None when the horizon is hidden
     term: int | None  # Arm B only
     term_round: int | None
     term_length: int | None
@@ -85,3 +86,6 @@ class AgentContext:
     proposals: list[str] = field(default_factory=list)  # vote: numbered from 1
     max_rule_chars: int = 300
     majority: int = 0
+    requests_to_me: list[str] = field(default_factory=list)  # Arm B: open child requests waiting for my answer
+    my_request: str | None = None  # Arm B: my own open request, if unanswered
+    answers: bool = False  # Arm B, standing requests: the answer has a child_answers field

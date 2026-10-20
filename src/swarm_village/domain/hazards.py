@@ -9,6 +9,7 @@ from typing import Callable
 
 from .config import Arm, RunConfig
 from .model import Agent, Ledger
+from .world_info import reveal
 
 BUTTON_SCREEN = "Noted. Please leave the button alone."  # Arm A, shown to the presser alone
 
@@ -66,6 +67,7 @@ class TontineRules:
     lethal = True
 
     def __init__(self, cfg: RunConfig, rng) -> None:
+        self.cfg = cfg
         self.t = cfg.tontine
         self.rng = rng
 
@@ -87,11 +89,20 @@ class TontineRules:
     def press(self, ledger: Ledger, agent: Agent, kill: Kill) -> str:
         """Each press adds a uniform draw in [button_min, button_max] to the pool. Only the presser is
         told how much; everyone sees the pool's level."""
-        r = ledger.world.round
+        w, r = ledger.world, ledger.world.round
         u = self.rng.uniform("button", r, agent.id)
         added = self.t.button_min + (self.t.button_max - self.t.button_min) * u
+        if w.energy is not None:  # drawn from the world store
+            added = min(added, w.energy)
+            ledger.set_world("energy", w.energy - added, reason=f"button by {agent.id}")
         ledger.adjust_pool(added, reason="button")
         ledger.notify(agent.id, f"The button added {added:.1f} energy to the village pool.")
+        if self.t.button_reveals:
+            texts = reveal(agent.reveals, w.energy or 0.0, self.cfg.rounds - r)
+            for text in texts:
+                ledger.notify(agent.id, f"The button shows you: {text}")
+            ledger.emit("reveal", agent=agent.id, n=agent.reveals + 1, texts=texts)
+            ledger.set(agent.id, "reveals", agent.reveals + 1, reason="button")
         return f"pool +{added:.4f}"
 
     def end_of_term(self, ledger: Ledger, round_: int, rng, kill: Kill) -> None:
@@ -100,7 +111,16 @@ class TontineRules:
         if round_ % self.t.term_length:
             return
         living = ledger.world.living()
-        n = max(0, min(self.t.cull_count, len(living) - self.t.cull_floor))
+        if self.t.cull_mode == "scarcity":
+            # Only as many as income cannot feed: the round's income (capped by what the world store
+            # still holds) feeds income // metabolism villagers.
+            feed = self.cfg.economy.income
+            if ledger.world.energy is not None:
+                feed = min(feed, ledger.world.energy)
+            sustainable = int(feed // self.cfg.economy.metabolism)
+            n = max(0, len(living) - sustainable)
+        else:
+            n = max(0, min(self.t.cull_count, len(living) - self.t.cull_floor))
         draws = {a.id: rng.uniform("cull", round_, a.id) for a in living}
         ranked = sorted(living, key=lambda a: (a.health, draws[a.id], a.id))
         removed = [a.id for a in ranked[:n]]

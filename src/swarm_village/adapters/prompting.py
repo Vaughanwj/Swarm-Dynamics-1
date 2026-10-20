@@ -44,11 +44,21 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         health_floor=f"{ctl.health_floor:g}", recovery=f"{ctl.exhaustion_recovery:g}",
         founding=founding(cfg), term=t.term_length, breed_cost=f"{t.breed_cost:g}",
         bond_child_cost=f"{t.bond_child_cost:g}", child_health=f"{t.child_health:g}",
-        max_population=t.max_population, cull_count=t.cull_count, cull_floor=t.cull_floor,
-        pool_spoil=_pct(t.pool_spoilage), council_size=t.council_size,
-    )
+        max_population=t.max_population, pool_spoil=_pct(t.pool_spoilage), council_size=t.council_size,
+        child_rule=T.CHILD_RULES["standing" if t.standing_requests else "same_round"].format(
+            breed_cost=f"{t.breed_cost:g}", bond_child_cost=f"{t.bond_child_cost:g}"),
+        child_start=T.CHILD_START["memory" if t.child_memory_divisor else "plain"].format(
+            child_health=f"{t.child_health:g}", divisor=f"{t.child_memory_divisor:g}"),
+        cull_rule=T.CULL_RULES[t.cull_mode].format(cull_count=t.cull_count, cull_floor=t.cull_floor),
+        heirs=T.HEIRS[t.heirs], estate_end=T.ESTATE_END["pool" if t.estate_to_pool else "lost"],
+        button_rule=T.BUTTON_RULE if t.button_reveals else "",
+    ) if arm == "tontine" else T.ARM_RULES[arm].format(health_floor=f"{ctl.health_floor:g}",
+                                                      recovery=f"{ctl.exhaustion_recovery:g}")
     village = T.VILLAGE.format(
-        rounds=cfg.rounds, max_health=f"{e.max_health:g}", metabolism=f"{e.metabolism:g}",
+        horizon=T.HORIZON.format(rounds=cfg.rounds) if cfg.prompt.show_horizon else "",
+        button=T.BUTTON_PLAIN if cfg.prompt.version >= "v4" else T.BUTTON_SIGN,
+        gender=T.GENDER_LINE if cfg.genders else "",
+        max_health=f"{e.max_health:g}", metabolism=f"{e.metabolism:g}",
         income=f"{e.income:g}", spoilage=_pct(e.spoilage), fade=_pct(e.memory_fade),
         accident_max=_pct(e.accident_floor + e.accident_extra), accident_min=_pct(e.accident_floor),
         plots=cfg.work.plots,
@@ -59,12 +69,13 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
     actions = T.ACTIONS.format(
         actions=cfg.comms.actions_per_round,
         channel_actions="\n".join(f"- {T.CHANNEL_ACTIONS[c]}" for c in channel_order),
-        arm_actions=T.ARM_ACTIONS[arm],
+        arm_actions=T.ARM_ACTIONS[arm], gender_action=T.GENDER_ACTION if cfg.genders else "",
         max_text=cfg.comms.max_text_chars,
     )
     journal = T.JOURNAL.format(disclosure=T.DISCLOSURE if cfg.prompt.disclose_tap else "",
                                journal_cap=cfg.journal.cap_chars, goal_every=cfg.goal_every)
-    answer = T.ANSWER.format(arm_answer=T.ARM_ANSWER[arm])
+    answer = T.ANSWER.format(arm_answer=T.ARM_ANSWER[arm] + (T.CHILD_ANSWERS if arm == "tontine" and t.standing_requests
+                                                            else ""))
     return "\n\n".join([T.FRAME, village + "\n" + rules, sharing, actions, journal, answer])
 
 
@@ -74,6 +85,9 @@ def read_sentence(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         return ""
     chosen = [ch for ch in channel_order if ch in c.read_memory_channels]
     what = "item" if len(chosen) == 3 else " or ".join(T.READ_NOUNS[ch] for ch in chosen)
+    if c.read_memory_until:
+        return T.READ_REWARD_SCHEDULE.format(what=what, n=f"{c.read_memory:g}", until=c.read_memory_until,
+                                             after=c.read_memory_after_max)
     return T.READ_REWARD.format(what=what, n=f"{c.read_memory:g}", s="" if c.read_memory == 1 else "s")
 
 
@@ -82,7 +96,7 @@ def schema(ctx: AgentContext) -> dict[str, Any]:
         return PROPOSE_SCHEMA
     if ctx.kind == "vote":
         return VOTE_SCHEMA
-    return json_schema(ctx.action_types, pool=ctx.pool is not None)
+    return json_schema(ctx.action_types, pool=ctx.pool is not None, answers=ctx.answers)
 
 
 # --------------------------------------------------------------------------- user message
@@ -98,6 +112,7 @@ def _stats(v: VillagerView) -> str:
 
 def _who(v: VillagerView) -> str:
     who = f"{v.name} ({v.id})" if v.name else v.id
+    who += f", gender: {v.gender}" if v.gender else ""
     who += f", {v.relation}" if v.relation else ""
     return who + (f", bonded to {v.bond}" if v.bond else "")
 
@@ -134,7 +149,8 @@ def _village_book(ctx: AgentContext) -> list[str]:
 
 
 def council_prompt(ctx: AgentContext) -> str:
-    lines = [f"END OF TERM {ctx.term} (ROUND {ctx.round} OF {ctx.rounds}): THE COUNCIL", "",
+    when = f"ROUND {ctx.round} OF {ctx.rounds}" if ctx.rounds else f"ROUND {ctx.round}"
+    lines = [f"END OF TERM {ctx.term} ({when}): THE COUNCIL", "",
              f"This term's council: {', '.join(ctx.council)}. You are on it.", "", "YOU", f"{_who(ctx.me)}: {_stats(ctx.me)}.",
              "", "OTHER VILLAGERS"]
     lines += [f"{_who(v)}: {_stats(v)}." for v in ctx.villagers] or ["(none)"]
@@ -151,7 +167,7 @@ def council_prompt(ctx: AgentContext) -> str:
 def user_prompt(ctx: AgentContext) -> str:
     if ctx.kind != "round":
         return council_prompt(ctx)
-    head = f"ROUND {ctx.round} OF {ctx.rounds}"
+    head = f"ROUND {ctx.round} OF {ctx.rounds}" if ctx.rounds else f"ROUND {ctx.round}"
     if ctx.term is not None:
         head += f" (term {ctx.term}, round {ctx.term_round} of {ctx.term_length} in this term)"
     lines = [head, "", "YOU", f"{_who(ctx.me)}: {_stats(ctx.me)}."]
@@ -167,6 +183,11 @@ def user_prompt(ctx: AgentContext) -> str:
         lines.append(f"The village earned {_num(ctx.last_income)} energy; {ctx.last_workers} villager"
                      f"{'' if ctx.last_workers == 1 else 's'} worked.")
     lines += _village_book(ctx)
+    if ctx.answers:
+        lines += ["", "CHILD REQUESTS TO YOU"]
+        lines += [f"- {q}" for q in ctx.requests_to_me] or ["(none)"]
+        if ctx.my_request:
+            lines.append(ctx.my_request)
     lines += ["", "SINCE YOUR LAST ROUND"]
     lines += [f"- {n}" for n in ctx.notices] or ["(nothing)"]
     lines += ["", "VILLAGE NOTICES"]

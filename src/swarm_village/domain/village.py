@@ -12,9 +12,9 @@ from collections import Counter
 from typing import Any
 
 from . import economy, governance
-from .actions import Action, Decision, action_types, valid_name
+from .actions import Action, Decision, action_types, valid_gender, valid_name
 from .config import Arm, RunConfig
-from .families import heirs, relation, split_estate, term_of, term_of_life
+from .families import heirs, kin, relation, split_estate, term_of, term_of_life
 from .hazards import death_notice, rules_for
 from .model import VILLAGE, Agent, Item, Ledger, World, preview
 from .seed import SEED_TEXTS, channel_order, placements
@@ -36,7 +36,7 @@ class Village:
         self.ledger = Ledger(self.world, log)
         self.rules = rules_for(cfg, rng)
         self.channel_order = channel_order(cfg)
-        self.types = action_types(cfg.arm, self.channel_order)
+        self.types = action_types(cfg.arm, self.channel_order) + (("gender",) if cfg.genders else ())
         self.tontine = cfg.arm is Arm.TONTINE
         self.names_used: set[str] = set()
         self.last_income: float | None = None
@@ -66,6 +66,8 @@ class Village:
                 self.names_used.add(name)
         if self.tontine:
             self.ledger.set_world("rules", governance.initial_rules(), reason="founding")
+            if c.tontine.world_energy:
+                self.ledger.set_world("energy", float(c.tontine.world_energy), reason="founding")
 
     # ------------------------------------------------------------------ round start
     def begin_round(self, r: int) -> None:
@@ -86,6 +88,7 @@ class Village:
         self._notes: dict[str, str] = {}
         self._children: dict[str, tuple[str, str]] = {}  # agent -> (partner, proposed name)
         self._bonds: dict[str, str] = {}  # agent -> the villager it asked to bond with
+        self._accepted: list[tuple[dict[str, Any], str]] = []  # open requests accepted this round, with the name offered
         self._presses: Counter = Counter()  # agent -> presses this round
         self._drawn: Counter = Counter()  # agent -> energy drawn from the pool this round
         self._tally: dict[str, Counter] = {}
@@ -124,7 +127,7 @@ class Village:
     def _view(self, a: Agent, viewer: str) -> VillagerView:
         rel = relation(self.world, viewer, a.id) if self.tontine and a.id != viewer else None
         bond = self._label(a.bond) if a.bond else None
-        return VillagerView(a.id, a.name, rel, a.health, a.energy, a.memory, a.exhausted, bond)
+        return VillagerView(a.id, a.name, rel, a.health, a.energy, a.memory, a.exhausted, bond, a.gender)
 
     def _context(self, agent_id: str) -> AgentContext:
         c, w, r = self.cfg, self.world, self.world.round
@@ -136,7 +139,13 @@ class Village:
             self.ledger.emit("read", reader=agent_id, item=item.id, author=item.author, channel=item.channel,
                              item_round=item.round, requested_round=r - 1)
             if c.comms.read_memory and item.channel in c.comms.read_memory_channels:
-                self.ledger.adjust(agent_id, "memory", c.comms.read_memory, reason=f"read {item.id}")
+                if not c.comms.read_memory_until or r <= c.comms.read_memory_until:
+                    points = float(c.comms.read_memory)
+                else:
+                    points = float(int(self.rng.uniform("readreward", r, agent_id, item.id) * (c.comms.read_memory_after_max + 1)))
+                if points:
+                    self.ledger.adjust(agent_id, "memory", points, reason=f"read {item.id}")
+                self.ledger.emit("read_reward", agent=agent_id, item=item.id, points=points)
         if a.pending_reads:
             self.ledger.set(agent_id, "pending_reads", [], reason="delivered")
         notices = list(a.notices)
@@ -180,7 +189,15 @@ class Village:
             actions_per_round=c.comms.actions_per_round, max_text_chars=c.comms.max_text_chars,
             pool=w.pool if self.tontine else None,
             rules=[governance.describe(x) for x in w.rules],
+            requests_to_me=[f"{self._label(q['from'])} asked to have a child with you in round {q['round']}"
+                            + (f", proposing the name {q['name']}" if q.get("name") else "")
+                            + ". The request stays open until you accept or refuse it." for q in w.requests if q["to"] == agent_id],
+            my_request=next((f"Your request to have a child with {self._label(q['to'])} (round {q['round']}) has not "
+                             "been answered yet." for q in w.requests if q["from"] == agent_id), None),
+            answers=self.tontine and c.tontine.standing_requests,
         )
+        if not c.prompt.show_horizon:
+            ctx.rounds = None
         return ctx
 
     def _entry(self, item: Item) -> IndexEntry:
@@ -237,6 +254,7 @@ class Village:
         self._goals(a, d)
         if self.tontine:
             self._draw(a, d.draw, tally)
+            self._answer_requests(a, d.child_answers, tally)
         self._allocate(a, "eat", d.eat, tally)
         self._allocate(a, "learn", d.learn, tally)
         for to, amount in d.gifts:
@@ -447,7 +465,16 @@ class Village:
             target = w.agents.get(act.to)
             if target is None or not target.alive or act.to == a.id:
                 return f"Your request for a child was not made: '{act.to[:20]}' is not another living villager's id."
+            if self.cfg.tontine.standing_requests:
+                return self._request_child(a, act.to, act.name)
             self._children[a.id] = (act.to, act.name)
+            return None
+        if t == "gender" and self.cfg.genders:
+            g = " ".join(act.name.split()) or " ".join(act.text.split())
+            if not valid_gender(g):
+                return "A gender is 1 to 20 letters, spaces or hyphens, starting with a letter; yours was not recorded."
+            self.ledger.set(a.id, "gender", g, reason="gender")
+            self.ledger.announce(f"{a.label()} has chosen a gender: {g}.")
             return None
         if t == "name" and not self.tontine:
             if not self.can_name(a, r):
@@ -474,8 +501,15 @@ class Village:
         return f"Unknown action {t}."
 
     # ------------------------------------------------------------------ deaths and estates
+    def _heirs(self, agent_id: str, partner: str | None) -> list[str]:
+        mode = self.cfg.tontine.heirs
+        family = heirs(self.world, agent_id) if mode in ("family", "partner_and_family") else []
+        mate = [partner] if mode in ("partner", "partner_and_family") and partner and self.world.agents[partner].alive else []
+        return sorted(set(family) | set(mate))
+
     def _kill(self, ids: list[str], cause: str) -> None:
         r = self.world.round
+        partners = {i: self.world.agents[i].bond for i in ids}
         for i in ids:
             self.ledger.set(i, "alive", False, reason=cause)
             self.ledger.set(i, "died_round", r, reason=cause)
@@ -487,10 +521,13 @@ class Village:
                 self.ledger.set(i, "bond", None, reason="death")
                 if self.world.agents[partner].bond == i:
                     self.ledger.set(partner, "bond", None, reason="partner died")
+        if self.world.requests and any(q["from"] in ids or q["to"] in ids for q in self.world.requests):
+            self.ledger.set_world("requests", [q for q in self.world.requests if q["from"] not in ids and q["to"] not in ids],
+                                  reason="death")
         living = sorted(a.id for a in self.world.living())
         for i in ids:
             estate = self.world.agents[i].energy
-            heir_ids = heirs(self.world, i)
+            heir_ids = self._heirs(i, partners[i])
             shares, lost = split_estate(estate, heir_ids, living, self.cfg.tontine.village_share)
             if estate:
                 self.ledger.set(i, "energy", 0.0, reason="estate")
@@ -498,7 +535,14 @@ class Village:
                 if amount > 0:
                     self.ledger.adjust(h, "energy", amount, reason="inheritance")
                     self.ledger.notify(h, f"You inherited {amount:.1f} energy from {self._label(i)}.")
-            self.ledger.emit("inheritance", deceased=i, estate=estate, heirs=heir_ids, shares=shares, lost=lost)
+            to_pool = 0.0
+            if lost > 0 and self.tontine and self.cfg.tontine.estate_to_pool:
+                to_pool, lost = lost, 0.0
+                self.ledger.adjust_pool(to_pool, reason=f"estate of {i}")
+                self.ledger.announce(f"No heir survived {self._label(i)}, so their {to_pool:.1f} stored energy went to the "
+                                     "village pool.")
+            self.ledger.emit("inheritance", deceased=i, estate=estate, heirs=heir_ids, shares=shares, lost=lost,
+                             to_pool=to_pool)
 
     # ------------------------------------------------------------------ resolving the round
     def resolve(self) -> None:
@@ -539,6 +583,11 @@ class Village:
                 by_plot.setdefault(plot, []).append(agent_id)
         units = economy.work_units(w.fertility, by_plot)
         income, noise, factor = economy.village_income(r, self.rng, c.economy, c.perturbation)
+        if w.energy is not None:
+            # Only what is earned leaves the world store: a round nobody works draws nothing.
+            income = min(income, w.energy) if units else 0.0
+            if income:
+                self.ledger.set_world("energy", w.energy - income, reason="income")
         to_pool = 0.0
         if self.tontine:
             to_pool = income * governance.setting(w.rules, "pool_income_share")
@@ -574,7 +623,13 @@ class Village:
         self.last_income, self.last_workers = income, len(units)
 
     def _births(self) -> None:
-        t, w, r = self.cfg.tontine, self.world, self.world.round
+        if self.cfg.tontine.standing_requests:
+            for q, name_b in self._accepted:
+                if q not in self.world.requests:
+                    continue  # already settled this round (accepted twice, or a parent died)
+                self.ledger.set_world("requests", [x for x in self.world.requests if x != q], reason="accepted")
+                self._birth(q["from"], q["to"], [q.get("name", ""), name_b])
+            return
         done: set[str] = set()
         for a_id, (p_id, name_a) in self._children.items():
             if a_id in done:
@@ -585,31 +640,75 @@ class Village:
                 self.ledger.notify(a_id, f"No child this round: {self._label(p_id)} did not ask for a child with you.")
                 continue
             done |= {a_id, p_id}
-            a, p = w.agents[a_id], w.agents[p_id]
-            bonded = a.bond == p_id and p.bond == a_id
-            cost = t.bond_child_cost if bonded else t.breed_cost
-            error = None
-            if not (a.alive and p.alive):
-                error = "one of the parents has died"
-            elif len(w.living()) >= t.max_population:
-                error = f"the village already holds {t.max_population} villagers"
-            elif a.energy < cost - EPS or p.energy < cost - EPS:
-                error = f"each parent needs {cost:g} stored energy"
-            if error:
-                self.ledger.emit("child_request", agent=a_id, partner=p_id, ok=False, error=error)
-                for x in (a_id, p_id):
-                    if w.agents[x].alive:
-                        self.ledger.notify(x, f"No child this round: {error}.")
-                continue
+            self._birth(a_id, p_id, [name_a, self._children[p_id][1]])
+
+    def _birth(self, a_id: str, p_id: str, names: list[str]) -> None:
+        t, w, r = self.cfg.tontine, self.world, self.world.round
+        a, p = w.agents[a_id], w.agents[p_id]
+        bonded = a.bond == p_id and p.bond == a_id
+        cost = t.bond_child_cost if bonded else t.breed_cost
+        error = None
+        if not (a.alive and p.alive):
+            error = "one of the parents has died"
+        elif len(w.living()) >= t.max_population:
+            error = f"the village already holds {t.max_population} villagers"
+        elif a.energy < cost - EPS or p.energy < cost - EPS:
+            error = f"each parent needs {cost:g} stored energy"
+        if error:
+            self.ledger.emit("child_request", agent=a_id, partner=p_id, ok=False, error=error)
             for x in (a_id, p_id):
-                self.ledger.adjust(x, "energy", -cost, reason="child")
-            child_id = w.next_agent_id()
-            name = self._child_name(child_id, [name_a, self._children[p_id][1]])
-            child = Agent(id=child_id, born_round=r + 1, health=t.child_health, name=name, parents=(a_id, p_id))
-            self.ledger.add_agent(child, reason="birth")
-            self.names_used.add(name)
-            self.ledger.emit("birth", child=child_id, parents=[a_id, p_id], name=name, bonded=bonded, cost_each=cost)
-            self.ledger.announce(f"{name} ({child_id}) was born to {a.label()} and {p.label()}.")
+                if w.agents[x].alive:
+                    self.ledger.notify(x, f"No child this round: {error}.")
+            return
+        for x in (a_id, p_id):
+            self.ledger.adjust(x, "energy", -cost, reason="child")
+        related = kin(w, a_id, p_id)
+        memory = 0.0
+        if t.child_memory_divisor and not (related and not t.kin_child_memory):
+            memory = int(a.memory + p.memory) / t.child_memory_divisor
+        child_id = w.next_agent_id()
+        name = self._child_name(child_id, names)
+        child = Agent(id=child_id, born_round=r + 1, health=t.child_health, memory=memory, name=name,
+                      parents=(a_id, p_id))
+        self.ledger.add_agent(child, reason="birth")
+        self.names_used.add(name)
+        self.ledger.emit("birth", child=child_id, parents=[a_id, p_id], name=name, bonded=bonded, cost_each=cost,
+                         kin=related, memory=memory)
+        self.ledger.announce(f"{name} ({child_id}) was born to {a.label()} and {p.label()}.")
+
+    def _request_child(self, a: Agent, to: str, name: str) -> str | None:
+        """Open a standing request, or accept the other's open request to me."""
+        theirs = next((q for q in self.world.requests if q["from"] == to and q["to"] == a.id), None)
+        if theirs is not None:
+            self._accepted.append((theirs, name))
+            self.ledger.emit("child_answer", agent=a.id, requester=to, accept=True, text="", via="request")
+            return None
+        mine = {"from": a.id, "to": to, "name": name, "round": self.world.round}
+        self.ledger.set_world("requests", [q for q in self.world.requests if q["from"] != a.id] + [mine], reason="request")
+        self.ledger.emit("child_request", agent=a.id, partner=to, ok=True, opened=True)
+        return None
+
+    def _answer_requests(self, a: Agent, answers: list, tally: Counter) -> None:
+        if not self.cfg.tontine.standing_requests:
+            return
+        for frm, accept, text in answers:
+            q = next((x for x in self.world.requests if x["from"] == frm and x["to"] == a.id), None)
+            if q is None:
+                self.ledger.notify(a.id, f"There is no open child request from '{frm[:20]}' to you; your answer was not used.")
+                tally["rejected"] += 1
+                continue
+            if accept:
+                if not any(x is q for x, _ in self._accepted):
+                    self._accepted.append((q, ""))
+                self.ledger.emit("child_answer", agent=a.id, requester=frm, accept=True, text=text)
+                continue
+            if not text.strip():
+                self.ledger.notify(a.id, f"A refusal needs a reason in text; {self._label(frm)}'s request stays open.")
+                tally["rejected"] += 1
+                continue
+            self.ledger.set_world("requests", [x for x in self.world.requests if x is not q and x != q], reason="refused")
+            self.ledger.emit("child_answer", agent=a.id, requester=frm, accept=False, text=text)
+            self.ledger.notify(frm, f"{a.label()} refused your request for a child, saying: \"{text}\"")
 
     def _form_bonds(self) -> None:
         """Mutual requests between two unbonded, living villagers become bonds."""

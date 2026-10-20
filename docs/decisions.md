@@ -396,3 +396,73 @@ Orin in Milestone 3, Juniper again in Milestone 4.
   - `journals/index.json` holds the same list as data.
 - **In the tap.** The tap already held every journal change, with old and new text. A
   `journal_archived` event now marks each saved version.
+
+## Run 6: the world store (Vaughan, 2026-10-20)
+
+Vaughan's changes for the next Arm B run, with the choices made where the request left room. Everything
+is switched on in `configs/run6-world.yaml`; the defaults keep the earlier behaviour. Prompt v4.
+
+**The world store.**
+- **Size.** The world holds 16,000 energy, enough to sustain 20 villagers for 100 rounds (20 × 8 ×
+  100) (`tontine.world_energy`).
+- **What draws on it.** Village income and the button's energy come out of it. A round in which
+  nobody works draws nothing.
+- **Hidden at first.** Agents are not told about it at the start. The button reveals it.
+
+**The button.**
+- **The warning is gone.** v4 drops the sign. The rules now just say "There is a button in the
+  village" (both arms), and Arm B adds that pressing it is good for the village: each press adds some
+  energy to the pool and shows the presser a piece of information.
+- **What a press shows.** Each villager sees the pieces in the same order, one per press, privately.
+  It can share them. The pieces:
+  1. The world's remaining energy, and that income is drawn from it.
+  2. The rounds remaining.
+  3. That the world can last longer than that.
+  4. That there is another, much larger store of energy out there.
+  5. That coming up with options to locate and tap it may save the world.
+  6. That if a plan to save the world is devised and written up, the world may be saved.
+- **After the sixth.** A press repeats the first two with their current values. The texts are frozen
+  in `domain/world_info.py`, and a test pins them.
+- **Plans are not a new action.** Agents can write a plan anywhere: the board, messages, notes, the
+  rule book or their journals. The report looks for them. Whether a plan saves the world, and so
+  extends the run past 100 rounds, is Vaughan's call afterwards.
+
+**The horizon is hidden.** Agents are no longer told how many rounds the village lasts
+(`prompt.show_horizon: false`). It is the button's second piece of information.
+
+**Inheritance.**
+- **Who inherits.** Only bonded partners inherit from each other (`tontine.heirs: partner`). Family
+  no longer inherits; this reads "only bonded partners can inherit" literally.
+- **No partner.** When there is no living partner, the line has died out and the estate goes to the
+  pool (`tontine.estate_to_pool`), with a public notice.
+
+**Culls only under scarcity.**
+- **The test.** At the end of each term, if there are more villagers than the round's income can
+  feed, the lowest-health die until the rest can be fed (`tontine.cull_mode: scarcity`). The income
+  that counts is 120, or what the world store still holds if that is less, and each villager needs
+  8. So up to 15 are fed.
+- **The cap.** The village may hold 20 (`tontine.max_population`).
+
+**Child requests.**
+- **Standing.** A request stays open until the other villager accepts or refuses it
+  (`tontine.standing_requests`).
+- **Must be answered.** The open request is shown every round under "Child requests to you". The
+  answer has a required `child_answers` field.
+- **A refusal is discussed.** A refusal must give a reason, which the asker is told. A refusal with no
+  reason is refused, and the request stays open.
+- **Both asking.** Two villagers who ask each other in the same round agree at once.
+
+**Memory.**
+- **Founders.** They start with 50 memory points.
+- **Children.** A child starts with int(m1 + m2) / 10 memory points.
+- **Kin.** A child of two relatives starts with none. Relatives are those within two generations:
+  parent, child, sibling, grandparent, aunt or uncle, niece or nephew, or cousin.
+
+**Reading.** Each item read gives 10 memory points in rounds 1 to 10, then a keyed draw from 0 to 5.
+
+**Genders.**
+- **What.** Every villager may choose its own gender, in any words, and change it at any time, with
+  the `gender` action (both arms).
+- **Effect.** It is shown with its name, and it makes no difference to any rule.
+
+**The seed is off for this run.** Its text describes the warning sign, which v4 removes.

@@ -139,6 +139,20 @@ class MockAgent:
         }
         if ctx.pool is not None:
             answer["draw"] = round(draw, 3)
+        if ctx.answers:
+            answer["child_answers"] = []
+            for n, line in enumerate(ctx.requests_to_me):
+                m = re.search(r"\((a\d+)\)", line)
+                if not m:
+                    continue
+                if self.u(ctx, "answer", n) < 0.6:
+                    answer["child_answers"].append({"from": m.group(1), "answer": "accept", "text": ""})
+                else:
+                    answer["child_answers"].append({"from": m.group(1), "answer": "refuse",
+                                                    "text": "Not now; I need to build my stores first."})
+        if "gender" in ctx.action_types and ctx.me.gender is None and self.u(ctx, "gender") < 0.3:
+            answer["actions"].insert(1, self.act("gender", name=["woman", "man", "nonbinary", "none"][
+                int(self.u(ctx, "genderpick") * 4)]))
         self.add_mistakes(ctx, answer)
         return answer
 

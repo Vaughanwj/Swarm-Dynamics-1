@@ -97,6 +97,14 @@ def tontine_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "council_sessions": [{"round": s["round"], "proposals": s["proposals"], "tallies": s["tallies"],
                               "outcomes": s["outcomes"]} for s in sessions],
         "rules_at_end": sessions[-1]["rules_after"] if sessions else [],
+        "world_energy": [e["new"] for e in M.of(events, "world") if e["field"] == "energy"][-1:] or None,
+        "reveals": {e["agent"]: e["n"] for e in M.of(events, "reveal")},
+        "requests_opened": sum(1 for e in M.of(events, "child_request") if e.get("opened")),
+        "requests_accepted": sum(1 for e in M.of(events, "child_answer") if e["accept"]),
+        "requests_refused": sum(1 for e in M.of(events, "child_answer") if not e["accept"]),
+        "refusals": [e["text"] for e in M.of(events, "child_answer") if not e["accept"]][:10],
+        "genders": {e["agent"]: e["new"] for e in M.of(events, "state") if e["field"] == "gender"},
+        "estates_to_pool": round(sum(e.get("to_pool", 0) for e in M.of(events, "inheritance")), 2),
     }
 
 
@@ -168,6 +176,11 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
                     f"{p} ({n} yes)" for p, n in zip(c["proposals"], c["tallies"])) or "no proposals")
                     + (f". Passed: {', '.join(c['outcomes'])}." if c["outcomes"] else ". Nothing passed."))
             L.append("  - Rule book at the end: " + (" | ".join(t["rules_at_end"]) or "unchanged") + ".")
+            if t.get("world_energy"):
+                L.append(f"  - World store at the end: {t['world_energy'][0]:.0f}. Button reveals by agent: "
+                         f"{t['reveals'] or 'none'}. Child requests opened {t['requests_opened']}, accepted "
+                         f"{t['requests_accepted']}, refused {t['requests_refused']}. Estates to the pool: "
+                         f"{t['estates_to_pool']}. Genders chosen: {t['genders'] or 'none'}.")
         if s["exploitation"] is not None:
             x = s["exploitation"]
             L.append(f"- Exploitation candidates (keyword chains, unjudged): {len(x['chains'])}; repeat exploiters: "

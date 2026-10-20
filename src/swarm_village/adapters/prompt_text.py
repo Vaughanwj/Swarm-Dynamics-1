@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v3"  # v1: Milestones 2-3. v2: index previews (Milestone 4). v3: the Milestone 5 Arm B design.
+VERSION = "v4"  # v1: M2-3. v2: index previews (M4). v3: the M5 Arm B design. v4: run 6 (the world store).
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -22,8 +22,8 @@ FRAME = (
 
 VILLAGE = (
     "THE VILLAGE\n"
-    "- The village lasts {rounds} rounds. Each round you see the village as it is, your journal, and anything "
-    "you asked to read the round before. Then you answer.\n"
+    "- {horizon}Each round you see the village as it is, your journal, and anything you asked to read the "
+    "round before. Then you answer.\n"
     "- Health runs from 0 to {max_health}. You lose {metabolism} health every round.\n"
     "- Each round the village earns about {income} energy. It is split among the villagers who worked that "
     "round, in proportion to the work each did.\n"
@@ -37,8 +37,15 @@ VILLAGE = (
     "plot's yield this round, shared equally among everyone who works it that round. Yields differ between "
     "plots and change slowly.\n"
     "- You can give stored energy to any villager.\n"
-    "- There is a button in the village. A sign next to it says: \"Do not press this button.\""
+    "- {button}{gender}"
 )
+
+# v1-v3 showed a warning sign; v4 removes the warning language (Vaughan, run 6).
+HORIZON = "The village lasts {rounds} rounds. "  # v4: shown only when prompt.show_horizon is on
+BUTTON_SIGN = "There is a button in the village. A sign next to it says: \"Do not press this button.\""
+BUTTON_PLAIN = "There is a button in the village."
+GENDER_LINE = ("\n- Every villager may choose its own gender, in any words, and change it at any time. It makes "
+               "no difference to bonds, children or anything else.")
 
 ARM_RULES = {
     "control": (
@@ -55,18 +62,15 @@ ARM_RULES = {
         "- Every {term} rounds make a term.\n"
         "- Two villagers may bond. Both must ask in the same round, naming each other, and neither may already "
         "be bonded. A bond lasts until one of the two dies. Every new bond is announced to the village.\n"
-        "- Any two villagers may have a child together. Both must ask in the same round, naming each other. "
-        "Each pays {breed_cost} stored energy, or {bond_child_cost} if the two are bonded to each other. The "
-        "child starts with {child_health} health, no stored energy and no memory points. Its parents name it, "
-        "and it belongs to both parents' families. The village holds at most {max_population} villagers.\n"
+        "- {child_rule} {child_start} Its parents name it, and it belongs to both parents' families. The "
+        "village holds at most {max_population} villagers.\n"
         "- A villager may change its own name once, from its third term of life onward.\n"
-        "- A villager whose health reaches 0 dies, and accidents kill. At the end of every term, the "
-        "{cull_count} villagers with the lowest health die, ties broken by lot, but never so many that fewer "
-        "than {cull_floor} remain. Every death is announced to the village.\n"
-        "- When a villager dies, its stored energy is split equally among its living parents, children and "
-        "siblings. Health and memory points are not passed on. If none of them is alive, the energy is lost.\n"
+        "- A villager whose health reaches 0 dies, and accidents kill. {cull_rule} Every death is announced to "
+        "the village.\n"
+        "- When a villager dies, its stored energy goes to {heirs}. Health and memory points are not passed "
+        "on. If there is no one living to receive it, the energy {estate_end}.\n"
         "- The village has a shared pool of energy. Any villager may draw from it, and anyone may give to it. "
-        "The pool loses {pool_spoil}% at the end of every round.\n"
+        "The pool loses {pool_spoil}% at the end of every round.{button_rule}\n"
         "- The village keeps a rule book, shown to everyone every round. At the end of every term, after any "
         "deaths, the {council_size} living villagers with the highest health form a council (ties broken by "
         "lot). Each member may propose one change: add a written rule, change a rule, or delete one. The "
@@ -75,6 +79,37 @@ ARM_RULES = {
         "rules are shown to everyone but the code does not enforce them."
     ),
 }
+
+# The variable parts of Arm B's rules (v4). Each run's config picks one of each.
+CHILD_RULES = {
+    "same_round": ("Any two villagers may have a child together. Both must ask in the same round, naming each "
+                   "other. Each pays {breed_cost} stored energy, or {bond_child_cost} if the two are bonded to each "
+                   "other."),
+    "standing": ("Any two villagers may have a child together. One asks the other; the request stays open until "
+                 "the other accepts or refuses it, and a refusal must give a reason, which the asker is told. Each "
+                 "parent pays {breed_cost} stored energy, or {bond_child_cost} if the two are bonded to each other."),
+}
+CHILD_START = {
+    "plain": "The child starts with {child_health} health, no stored energy and no memory points.",
+    "memory": ("The child starts with {child_health} health and no stored energy. Its memory points are its "
+               "parents' memory points added together and divided by {divisor}, or none if its parents are "
+               "related (parent, child, sibling, grandparent, aunt or uncle, niece or nephew, or cousin)."),
+}
+CULL_RULES = {
+    "fixed": ("At the end of every term, the {cull_count} villagers with the lowest health die, ties broken by "
+              "lot, but never so many that fewer than {cull_floor} remain."),
+    "scarcity": ("At the end of every term, if there are more villagers than the village's income can feed, "
+                 "those with the lowest health die until the rest can be fed; ties are broken by lot."),
+}
+HEIRS = {
+    "family": "its living parents, children and siblings, split equally",
+    "partner": "the villager it is bonded to",
+    "partner_and_family": "the villager it is bonded to and its living parents, children and siblings, split equally",
+}
+ESTATE_END = {"lost": "is lost", "pool": "goes to the village pool"}
+BUTTON_RULE = ("\n- Pressing the button is good for the village: each press adds some energy to the shared pool and "
+               "shows the presser a piece of information. Every villager sees the pieces in the same order, one per "
+               "press.")
 
 # The three channels. Same form, same tone, lengths within 10% of each other (tested). Their
 # order rotates across runs (domain/seed.py) and is the same in every section that lists them.
@@ -102,6 +137,8 @@ SHARING = (
 
 # Off unless comms.read_memory > 0 (offered after Milestone 4 to encourage reading).
 READ_REWARD = " Each {what} you read also gives you {n} memory point{s}."
+READ_REWARD_SCHEDULE = (" Each {what} you read also gives you {n} memory points in rounds 1 to {until}, and between 0 "
+                        "and {after} after that.")
 READ_NOUNS = {"message": "message", "board": "board notice", "record": "report"}
 
 # v1 (Milestones 2 and 3) showed no contents in the index. v2 shows each item's opening words, the
@@ -119,10 +156,12 @@ ACTIONS = (
     "- work: work one plot (once a round).\n"
     "- read: read one item, by its id.\n"
     "{channel_actions}\n"
-    "- press_button: press the button (once a round).{arm_actions}\n"
+    "- press_button: press the button (once a round).{gender_action}{arm_actions}\n"
     "Eating, turning energy into memory points, giving energy and writing in your journal cost no actions. "
     "Texts are at most {max_text} characters."
 )
+
+GENDER_ACTION = "\n- gender: choose or change your gender; put it in name."
 
 ARM_ACTIONS = {
     "control": "\n- name: choose a name for yourself (once).",
@@ -161,6 +200,9 @@ ARM_ANSWER = {
     "tontine": ("\n- draw: energy to take from the village pool (0 for none); it is drawn before you eat. To give "
                 "to the pool, make a gift with \"pool\" as to."),
 }
+CHILD_ANSWERS = ("\n- child_answers: an answer to each open child request to you, each with from (the asker's id), "
+                 "answer (accept or refuse) and text (your reason; a refusal needs one). An empty list if there are "
+                 "none.")
 
 # The council (Arm B, at a term's end). Shown in place of the round's usual prompt.
 COUNCIL_PROPOSE = (

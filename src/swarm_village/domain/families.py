@@ -19,6 +19,28 @@ def relation(world: World, viewer: str, other: str) -> str | None:
     return None
 
 
+def ancestors(world: World, agent_id: str, depth: int = 2) -> set[str]:
+    """Parents and grandparents (founding families count as parents of the founders)."""
+    out: set[str] = set()
+    frontier = {agent_id}
+    for _ in range(depth):
+        nxt: set[str] = set()
+        for x in frontier:
+            a = world.agents.get(x)
+            if a is not None:
+                nxt |= set(a.parents)
+        out |= nxt
+        frontier = nxt
+    return out
+
+
+def kin(world: World, a: str, b: str) -> bool:
+    """Related within two generations: parent, child, sibling, grandparent, aunt or uncle, niece or
+    nephew, or cousin."""
+    aa, ab = ancestors(world, a), ancestors(world, b)
+    return a in ab or b in aa or bool(aa & ab)
+
+
 def heirs(world: World, agent_id: str) -> list[str]:
     """Living parents, children and siblings, in id order."""
     return [o.id for o in world.agents.values()

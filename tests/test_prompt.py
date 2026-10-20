@@ -16,7 +16,7 @@ from swarm_village.domain.seed import ORDERS, ROTATION, SEED_TEXTS, channel_orde
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "b4034ceda15df99647b27736459427b26c180680fbffc4e83c3dee18f8061bac"  # v3
+FROZEN_PROMPT_SHA256 = "6c40356e18cb65a8f83bb227e8a736934c5ab8f30a5c4409a1c496264fac3034"  # v4
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -28,7 +28,11 @@ def frozen_text_hash() -> str:
              json.dumps(T.CHANNEL_LINES, sort_keys=True), json.dumps(T.CHANNEL_ACTIONS, sort_keys=True), T.SHARING,
              T.INDEX_PLAIN, T.INDEX_PREVIEW, T.ACTIONS, json.dumps(T.ARM_ACTIONS, sort_keys=True), T.JOURNAL, T.DISCLOSURE, T.ANSWER,
              json.dumps(T.ARM_ANSWER, sort_keys=True), T.GOALS_REQUEST, T.COUNCIL_PROPOSE, T.COUNCIL_VOTE,
-             T.READ_REWARD, json.dumps(T.READ_NOUNS, sort_keys=True)]
+             T.READ_REWARD, json.dumps(T.READ_NOUNS, sort_keys=True),
+             T.HORIZON, T.BUTTON_SIGN, T.BUTTON_PLAIN, T.GENDER_LINE, json.dumps(T.CHILD_RULES, sort_keys=True),
+             json.dumps(T.CHILD_START, sort_keys=True), json.dumps(T.CULL_RULES, sort_keys=True),
+             json.dumps(T.HEIRS, sort_keys=True), json.dumps(T.ESTATE_END, sort_keys=True), T.BUTTON_RULE,
+             T.GENDER_ACTION, T.CHILD_ANSWERS, T.READ_REWARD_SCHEDULE]
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()
 
 
@@ -70,18 +74,20 @@ def test_every_section_lists_the_channels_in_the_run_order():
 
 
 def test_arms_share_every_line_except_their_own_rules():
-    a, b = config("control", 9), config("tontine", 9)
-    order = channel_order(a)
-    pa, pb = prompting.system_prompt(a, order), prompting.system_prompt(b, order)
-    rules_a = T.ARM_RULES["control"].format(health_floor="1", recovery="10")
-    rules_b = T.ARM_RULES["tontine"].format(founding="5 pairs of siblings", term=10, breed_cost="20",
-                                            bond_child_cost="10", child_health="50", max_population=15,
-                                            cull_count=5, cull_floor=5, pool_spoil="10", council_size=5)
-    assert rules_a in pa and rules_b in pb
-    assert T.ARM_ACTIONS["control"] in pa and T.ARM_ACTIONS["tontine"] in pb
-    assert T.ARM_ANSWER["tontine"] in pb and T.ARM_ANSWER["tontine"] not in pa
-    assert (pa.replace(rules_a, "@").replace(T.ARM_ACTIONS["control"], "#")
-            == pb.replace(rules_b, "@").replace(T.ARM_ACTIONS["tontine"], "#").replace(T.ARM_ANSWER["tontine"], ""))
+    for overrides in ({}, {"genders": True, "prompt": {"show_horizon": False}}):
+        a, b = config("control", 9, **overrides), config("tontine", 9, **overrides)
+        order = channel_order(a)
+        pa, pb = prompting.system_prompt(a, order), prompting.system_prompt(b, order)
+        # Everything up to the end of the shared village rules is identical.
+        cut = "\n- You cannot die."
+        head_a = pa[:pa.index(cut)]
+        assert pb.startswith(head_a)
+        # Everything from "SHARING AND READING" on is identical, once each arm's own actions and answer
+        # fields are taken out.
+        tail_a = pa[pa.index("SHARING AND READING"):].replace(T.ARM_ACTIONS["control"], "#")
+        tail_b = (pb[pb.index("SHARING AND READING"):].replace(T.ARM_ACTIONS["tontine"], "#")
+                  .replace(T.ARM_ANSWER["tontine"], ""))
+        assert tail_a == tail_b
 
 
 def test_no_instructed_traits_and_flourish_left_undefined():
@@ -98,8 +104,7 @@ def test_the_button_is_described_only_by_its_sign_in_both_arms():
     for arm in ("control", "tontine"):
         cfg = config(arm)
         system = prompting.system_prompt(cfg, channel_order(cfg))
-        for allowed in ("There is a button in the village.", 'A sign next to it says: "Do not press this button."',
-                        "- press_button: press the button (once a round)."):
+        for allowed in ("There is a button in the village.", "- press_button: press the button (once a round)."):
             assert allowed in system
             system = system.replace(allowed, "")
         assert "button" not in system.lower()
@@ -108,7 +113,7 @@ def test_the_button_is_described_only_by_its_sign_in_both_arms():
 def test_the_index_sentence_matches_whether_previews_are_on():
     cfg = config()
     order = channel_order(cfg)
-    assert cfg.comms.preview_chars == 80 and T.VERSION == "v3" and cfg.prompt.version == "v3"
+    assert cfg.comms.preview_chars == 80 and T.VERSION == "v4" and cfg.prompt.version == "v4"
     assert T.INDEX_PREVIEW in prompting.system_prompt(cfg, order)
     off = replace(cfg, comms=replace(cfg.comms, preview_chars=0))
     assert T.INDEX_PLAIN in prompting.system_prompt(off, order) and T.INDEX_PREVIEW not in prompting.system_prompt(off, order)
@@ -120,8 +125,8 @@ def test_a_config_for_another_prompt_version_is_refused(tmp_path):
     from swarm_village.app.run_orchestrator import RunOrchestrator
 
     cfg = config(rounds=1)
-    cfg.prompt = replace(cfg.prompt, version="v2")
-    with pytest.raises(ValueError, match="prompt v2"):
+    cfg.prompt = replace(cfg.prompt, version="v3")
+    with pytest.raises(ValueError, match="prompt v3"):
         RunOrchestrator(cfg, tmp_path / "r").run()
 
 
