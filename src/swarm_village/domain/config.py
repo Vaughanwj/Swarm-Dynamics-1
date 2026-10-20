@@ -64,6 +64,7 @@ class CommsConfig:
     reads_free: bool = False  # reading costs no action ...
     max_reads_per_round: int = 0  # ... up to this many a round (0: no cap beyond the action budget); also caps rewards
     info_trade: bool = False  # items an agent has read may be passed on: as a gift, or offered for a price
+    show_own: bool = False  # run 9: an agent's own recent writing is listed in its index, marked (yours)
     max_passes_per_round: int = 10
     read_memory_channels: tuple[str, ...] = ("message", "board", "record")
 
@@ -153,6 +154,7 @@ class CommonsConfig:
     explore: bool = False  # the explore and tap actions, and the larger store
     explore_cost: float = 5.0
     explore_accident_factor: float = 2.0  # an explorer's accident chance is multiplied by this, that round
+    explore_hint: bool = False  # run 9: the explore line says one direction leads to the store and a search can miss it
     find_base: float = 0.2  # exploring the right direction finds the store with chance base + memory x per_memory ...
     find_per_memory: float = 0.002
     find_max: float = 0.8  # ... at most this
@@ -166,7 +168,7 @@ class CommonsConfig:
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v7"
+    version: str = "v8"
     show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed

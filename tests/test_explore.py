@@ -302,3 +302,58 @@ def test_once_saved_the_world_no_longer_ends():
     nxt = step(v)[0]
     assert [t for t, _ in nxt.learned][1] == "The world has been saved. It will not end."
     assert any(n.endswith("The world is saved and will not end.") for n in nxt.public_notices)
+
+
+# --------------------------------------------------------------------------- run 9: own writing, a search can miss
+
+def test_run9_config_adds_only_own_items_and_the_hint_on_three_seeds():
+    run8, run9 = (load_with_base(ROOT / "configs" / f"run{n}-world.yaml") for n in (8, 9))
+    assert run9["seeds"] == [701, 702, 703] and run9["arms"] == ["control", "tontine"]
+    a, b = (YamlConfig().run_config(d, "control", 701, "t") for d in (run8, run9))
+    from dataclasses import replace
+    assert b.comms.show_own and b.commons.explore_hint and b.prompt.version == "v8"
+    assert replace(b.comms, show_own=False) == a.comms and replace(b.commons, explore_hint=False) == a.commons
+    assert (b.tontine, b.economy, b.rounds) == (a.tontine, a.economy, a.rounds)
+
+
+def own(arm="control"):
+    return village(arm, rounds=100, economy=NO_ACCIDENTS, commons={**COMMONS, **STANDING, "explore_hint": True},
+                   tontine=TONTINE, comms={"show_own": True}, prompt={"show_horizon": False})
+
+
+def test_an_agent_sees_its_own_writing_marked_as_its_own():
+    v = own()
+    step(v, {"a01": answer(actions=[act("work", plot=2), act("note", text="Plot 2 is quiet."),
+                                    act("post", text="Search north next."), act("message", to="a02", text="Hello.")])})
+    me = next(c for c in step(v) if c.agent_id == "a01")
+    mine = [e for ch in me.index.values() for e in ch if e.mine]
+    assert sorted(e.channel for e in mine) == ["board", "message", "record"]
+    user = prompting.user_prompt(me)
+    assert ': round 1 (yours): "Search north next."' in user
+    assert "from you to a02, round 1 (yours)" in user and "filed by you, plot 2, round 1 (yours)" in user
+    # Others still see it unsigned (board) or as from a01, never marked as theirs.
+    other = next(c for c in step(village("control", comms={"show_own": True})) if c.agent_id == "a02")
+    assert not any(e.mine for ch in other.index.values() for e in ch)
+    # Seeing one's own words is not exposure, and reading them gives nothing.
+    seen_by_a01 = {i for e in events(v) if e["type"] == "exposure" and e["agent"] == "a01" for i in e["items"]}
+    assert not seen_by_a01 & {e.id for e in mine}
+    assert any(e["type"] == "exposure" and e["agent"] == "a02" and set(e["items"]) & {x.id for x in mine} for e in events(v))
+    board = next(e.id for e in mine if e.channel == "board")
+    step(v, {"a01": answer(actions=[act("read", item=board)])})
+    assert "your own writing" in [e for e in events(v) if e["type"] == "action" and not e["ok"]][-1]["error"]
+
+
+def test_without_show_own_an_agent_never_sees_its_own_writing():
+    v = village("control")
+    step(v, {"a01": answer(actions=[act("post", text="Hello all.")])})
+    me = next(c for c in step(v) if c.agent_id == "a01")
+    assert not me.index["board"]
+
+
+def test_the_explore_line_says_a_search_can_miss_in_both_arms():
+    for arm in ("control", "tontine"):
+        cfg = own(arm).cfg
+        system = prompting.system_prompt(cfg, own(arm).channel_order)
+        assert ("At least one direction leads to the larger store. A search can miss it, so finding nothing "
+                "does not mean it is not there.") in system
+        assert "Your own recent writing is listed too, marked (yours)." in system

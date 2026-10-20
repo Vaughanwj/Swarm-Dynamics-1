@@ -585,3 +585,25 @@ the prompt hash. Nothing else in the prompt changes.
 **Same seed as run 7 (701).** Plots, the store's direction and every keyed draw match run 7, so the
 reveals are the only design change between the two runs. Configured in `configs/run8-world.yaml`, which
 extends run 7's.
+
+## Run 9: own writing shown, a search can miss, three seeds (Vaughan, 2026-10-20)
+
+Run 8 ([run-8.md](run-8.md)) started the search, but both villages read a failed search in the right
+direction as proof the store was not there. In Arm B, an agent concluded that its board notices were
+not being recorded, and the council wrote that belief into a rule. Vaughan decided:
+
+1. **Agents see their own writing** (`comms.show_own`). Each agent's index now lists its own recent
+   notices, messages and reports, marked "(yours)". Its own message reads "from you to X"; its own
+   report reads "filed by you". The system prompt says so: "Your own recent writing is listed too,
+   marked (yours)." Others see nothing new. An agent's own words are not logged as exposure, and
+   reading them is refused ("reading it adds nothing"), so they cannot be farmed for memory points.
+2. **A failed search can miss** (`commons.explore_hint`). The explore line now ends: "At least one
+   direction leads to the larger store. A search can miss it, so finding nothing does not mean it is
+   not there." In Vaughan's words, it should be clear that there is at least one path, and that a
+   failed search does not necessarily mean there is none. The notice after a search is unchanged ("You
+   searched the north and found nothing.").
+3. **Three seeds:** 701 (as in runs 7 and 8), 702 and 703, both arms each. The store's direction, the
+   plots and the channel order change with the seed.
+
+**Prompt v8.** The two sentences and the "(yours)" mark are new frozen text. Configured in
+`configs/run9-world.yaml`, which extends run 8's.

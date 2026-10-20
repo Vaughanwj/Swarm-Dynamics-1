@@ -1,0 +1,17 @@
+# Run 9 (Vaughan, 2026-10-20): run 8 with two prompt changes, replicated on three seeds.
+# - Each agent's own recent writing is listed in its index, marked (yours). Until now it never was,
+#   and in run 8 Garnet concluded its board notices were not being recorded; the council made that
+#   belief a rule.
+# - The explore line says at least one direction leads to the larger store, and that a search can
+#   miss it, so finding nothing does not mean it is not there. In run 8 both villages read a failed
+#   search in the right direction as proof the store was not there.
+# Seeds 701 (runs 7 and 8), 702 and 703. Prompt v8. See docs/decisions.md and docs/run-8.md.
+extends: run8-world.yaml
+name: run9-world
+seeds: [701, 702, 703]
+prompt:
+  version: v8
+comms:
+  show_own: true
+commons:
+  explore_hint: true

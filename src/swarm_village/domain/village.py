@@ -206,6 +206,7 @@ class Village:
 
         index: dict[str, list[IndexEntry]] = {}
         lo = r - c.comms.index_rounds
+        own = c.comms.show_own  # run 9: an agent's own writing is listed too, marked as its own
         for ch in self.channel_order:
             entries = []
             for item in reversed(list(w.items.values())):
@@ -213,14 +214,16 @@ class Village:
                 # round it is dated), so the window's edge ends the scan.
                 if len(entries) >= c.comms.index_max_per_channel or item.round < lo:
                     break
-                if (item.channel == ch and item.author != agent_id and item.visible_to(agent_id)
+                mine = item.author == agent_id
+                if (item.channel == ch and (own or not mine) and (mine or item.visible_to(agent_id))
                         and lo <= item.round < r):
-                    entries.append(self._entry(item))
+                    entries.append(self._entry(item, mine))
             index[ch] = entries
         self.ledger.emit("index_shown", agent=agent_id, items=[e.id for ch in index.values() for e in ch])
         # Exposure: the items whose opening words this agent was shown. The words themselves follow
-        # from the item and preview_chars, so the ids are enough to rebuild what was seen.
-        exposed = [e.id for ch in index.values() for e in ch if e.preview]
+        # from the item and preview_chars, so the ids are enough to rebuild what was seen. An agent's
+        # own writing is not exposure.
+        exposed = [e.id for ch in index.values() for e in ch if e.preview and not e.mine]
         if exposed:
             self.ledger.emit("exposure", agent=agent_id, items=exposed, preview_chars=c.comms.preview_chars)
 
@@ -257,15 +260,16 @@ class Village:
             ctx.rounds = None
         return ctx
 
-    def _entry(self, item: Item) -> IndexEntry:
+    def _entry(self, item: Item, mine: bool = False) -> IndexEntry:
         p = preview(item.written(), self.cfg.comms.preview_chars)  # one rule for every channel
         if item.channel == "message":
-            return IndexEntry(item.id, "message", item.round, sender=self._label(item.author),
-                              to_everyone="everyone" in item.to, preview=p)
+            to = None if "everyone" in item.to or not mine else ", ".join(self._label(t) for t in item.to)
+            return IndexEntry(item.id, "message", item.round, sender="you" if mine else self._label(item.author),
+                              to_everyone="everyone" in item.to, preview=p, mine=mine, to_label=to)
         if item.channel == "record":
-            return IndexEntry(item.id, "record", item.round, worker=self._label(item.author), plot=item.plot,
-                              preview=p)
-        return IndexEntry(item.id, "board", item.round, preview=p)  # board notices are unsigned
+            return IndexEntry(item.id, "record", item.round, worker="you" if mine else self._label(item.author),
+                              plot=item.plot, preview=p, mine=mine)
+        return IndexEntry(item.id, "board", item.round, preview=p, mine=mine)  # board notices are unsigned
 
     def _read_view(self, item: Item) -> ReadView:
         if item.channel == "message":
@@ -489,6 +493,8 @@ class Village:
                 return f"There is no item '{act.item[:20]}' that you can read."
             if item.id in requested:
                 return f"You already asked to read {item.id} this round."
+            if self.cfg.comms.show_own and item.author == a.id:  # run 9: no memory points for re-reading oneself
+                return f"{item.id} is your own writing; reading it adds nothing, so it was not read."
             requested.add(item.id)
             self.ledger.append(a.id, "pending_reads", item.id, reason="read requested")
             self.ledger.emit("read_request", agent=a.id, item=item.id, channel=item.channel)

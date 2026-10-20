@@ -73,14 +73,16 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
     sharing = T.SHARING.format(channel_lines="\n".join(f"- {T.CHANNEL_LINES[c]}" for c in channel_order),
                                index_sentence=T.INDEX_PREVIEW if cfg.comms.preview_chars > 0 else T.INDEX_PLAIN,
                                read_sentence=read_sentence(cfg, channel_order),
-                               trade_sentence=T.INFO_TRADE if cfg.comms.info_trade else "")
+                               trade_sentence=T.INFO_TRADE if cfg.comms.info_trade else "",
+                               own_sentence=T.OWN_SENTENCE if cfg.comms.show_own else "")
     actions = T.ACTIONS.format(
         actions=cfg.comms.actions_per_round,
         channel_actions="\n".join(f"- {T.CHANNEL_ACTIONS[c]}" for c in channel_order),
         arm_actions=T.ARM_ACTIONS[arm],
         explore_actions=T.EXPLORE_ACTIONS.format(
             directions=", ".join(DIRECTIONS[:-1]) + " or " + DIRECTIONS[-1], explore_cost=f"{m.explore_cost:g}",
-            accident=accident_word(m.explore_accident_factor), tap_cost=f"{m.tap_cost:g}") if m.explore else "",
+            accident=accident_word(m.explore_accident_factor), tap_cost=f"{m.tap_cost:g}",
+            hint=T.EXPLORE_HINT if m.explore_hint else "") if m.explore else "",
         read_line=T.READ_LINE_FREE.format(max=cfg.comms.max_reads_per_round) if cfg.comms.reads_free else T.READ_LINE,
         max_text=cfg.comms.max_text_chars,
     )
@@ -134,12 +136,13 @@ def _who(v: VillagerView) -> str:
 
 def _entry(e: IndexEntry) -> str:
     if e.channel == "message":
-        head = f"- {e.id}: from {e.sender} to {'everyone' if e.to_everyone else 'you'}, round {e.round}"
+        head = f"- {e.id}: from {e.sender} to {'everyone' if e.to_everyone else e.to_label or 'you'}, round {e.round}"
     elif e.channel == "record":
         where = f"plot {e.plot}, " if e.plot else ""
         head = f"- {e.id}: filed by {e.worker}, {where}round {e.round}"
     else:
         head = f"- {e.id}: round {e.round}"
+    head += T.OWN_MARK if e.mine else ""
     return f'{head}: "{e.preview}"' if e.preview else head  # previews are one line, always quoted
 
 

@@ -30,6 +30,8 @@ class IndexEntry:
     worker: str | None = None  # records: who filed it (a label, or "the village")
     plot: int | None = None  # records
     preview: str = ""  # the opening words of what its writer wrote (for a report, its note); one line
+    mine: bool = False  # run 9: the viewer wrote it (shown only with comms.show_own)
+    to_label: str | None = None  # the viewer's own message: who it went to
 
 
 @dataclass(frozen=True)

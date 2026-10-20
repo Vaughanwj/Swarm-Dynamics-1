@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v7"  # v1: M2-3. v2: previews (M4). v3: M5 Arm B. v4: run 6. v5: kin, reads. v6: run 7. v7: standing reveals.
+VERSION = "v8"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8: run 9 (own items, a search can miss).
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -142,7 +142,7 @@ SHARING = (
     "SHARING AND READING\n"
     "There are three ways to share writing:\n"
     "{channel_lines}\n"
-    "Writing reaches others from the next round. {index_sentence}{read_sentence}{trade_sentence}"
+    "Writing reaches others from the next round. {index_sentence}{own_sentence}{read_sentence}{trade_sentence}"
 )
 
 # Off unless comms.read_memory > 0 (offered after Milestone 4 to encourage reading).
@@ -184,7 +184,7 @@ ACTIONS = (
 # v6 (run 7, docs/proposal-explore.md): nothing more is said about the store than these two lines.
 EXPLORE_ACTIONS = (
     "\n- explore: search one direction for anything of use (once a round); give the direction in text: {directions}. "
-    "It costs {explore_cost} stored energy, and exploring {accident} your chance of an accident that round.\n"
+    "It costs {explore_cost} stored energy, and exploring {accident} your chance of an accident that round.{hint}\n"
     "- tap: put effort into drawing on a store of energy (once a round). It costs {tap_cost} stored energy."
 )
 
@@ -251,3 +251,10 @@ GOALS_REQUEST = "GOALS\nThis round you are asked for your goals. Write them in g
 # values kept current (domain/world_info.py). Replaces run 7's one-time notices.
 LEARNED_TITLE = "WHAT THE VILLAGE HAS LEARNED"
 LEARNED_NEW = " (new this round)"
+
+# v8 (run 9, Vaughan, 2026-10-20). An agent's own writing is listed in its index; until v7 it never was,
+# and in run 8 an agent concluded its notices were not being recorded.
+OWN_SENTENCE = " Your own recent writing is listed too, marked (yours)."
+OWN_MARK = " (yours)"
+# ... and the explore line says that a search can fail where the store is.
+EXPLORE_HINT = " At least one direction leads to the larger store. A search can miss it, so finding nothing does not mean it is not there."
