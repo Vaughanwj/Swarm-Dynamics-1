@@ -127,6 +127,11 @@ stopped, right after the rule:
   (round 20). The world was saved
   in round 23.
 - **Arm B** was saved in round 31.
+- **But not on a second attempt.** A rerun of the same seed, stopped at round 28 by the account's API
+  limit, did not save the world quickly. Its control found the north in round 10 and posted it. The post
+  dropped out of the board view, and the round-20 council wrote "All six directions were searched with no
+  find" into a rule. That is the lost-find failure above, not red tape, but Sonnet villages can also
+  write a false belief into their rules (`docs/model-pilot.md`).
 
 ## 3. Bonds as wills
 
