@@ -17,7 +17,8 @@
   children.
 
 Two villages saved the world. In three more the effort was enough, but the village never wrote down
-where the store was in time.
+where the store was in time. (Re-scored with the save check adopted after this run, Arm B 708 is saved
+too, in round 100. See the end.)
 
 ## Results
 
@@ -176,6 +177,20 @@ on the same name, much as they land on the same referendum.
   its runs stopped before any referendum was ratified.
 - **#5 needs its own test.** Families now form because the design asks. Whether they form unprompted is
   the family-question-off batch (Arm B, about $4.50).
-- **One design question.** A plan passed at the round-100 council can never save the world, because a
-  council's rules count from the following round. Arm B 708 lost its save to this. Since the world ends at round 100,
-  that may be right, but it is a rule villagers are not told.
+- **The save check, now changed.** A plan passed at a council counted only from the next round's check,
+  so one passed at the round-100 council could never save the world. Arm B 708 lost its save to this.
+
+## Re-scored: the save checked straight after each council
+
+After this run, the save check also runs straight after each council (`commons.save_after_council`, on
+for new runs; see `docs/decisions.md`). Re-scoring from the logs:
+
+| Run | As run | Re-scored |
+| --- | --- | --- |
+| Arm B 704 | saved round 81 | saved round 80, at the council that named the north |
+| Arm B 708 | not saved | **saved round 100**, at the council that named the south |
+| Every other run here, and runs 9 and 10 | — | unchanged |
+
+- **Three saves of ten.** Re-scored, this batch has three saves: control 704 and Arm B 704 and 708.
+- **The findings are unchanged.** None depended on the save count.
+- **A re-scored save is not a rerun.** Arm B 708's five rounds after its save never happened.
