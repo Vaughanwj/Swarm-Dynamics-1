@@ -1,0 +1,19 @@
+# Run 11 name-swap check (Vaughan, 2026-10-20): does the will-writing follow the name Iris or the slot a09?
+# In run 11 every will (6 of 6, three seeds) was written by villager a09, Iris. a09's journals mention wills in
+# 54 of 718 entries across the 11 Arm B villages, and every other founder's in at most 1. Founders differ only
+# in name, family and position: a09 is Iris, the elder of the last sibling pair (with a10, Juniper), and ninth
+# in every list. Nothing in the prompt names a09.
+# - The swap: Iris moves to a03 (second family, with a04, Dune; third in the lists), and a09 becomes Cedar.
+#   Everything else is run11-seeds' Arm B, with the family question.
+# - Seeds 701 and 705, the two where Iris wrote wills with the family question.
+# - If wills (or journal talk of wills) follow Iris to a03, the name drives it. If they stay with a09, the
+#   slot does (its pairing or its place in the lists). If nobody thinks of wills, the check is inconclusive:
+#   it happened in only 3 of 11 villages.
+# - save_after_council stays off, to match the runs this is compared with.
+# Each run is capped at $2. See docs/decisions.md.
+extends: run11-seeds.yaml
+name: run11-names
+arms: [tontine]
+seeds: [701, 705]
+tontine:
+  founder_names: [Ash, Brook, Iris, Dune, Ember, Fern, Garnet, Heath, Cedar, Juniper]

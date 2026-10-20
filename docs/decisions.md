@@ -780,3 +780,23 @@ never told of it. Vaughan agreed to the fix (`commons.save_after_council`):
 
   Every other save is unchanged: run 9 control 701, run 10 control 703, run 11 control 704 and both Sonnet
   pilot saves. A re-scored save is not a rerun: Arm B 708's five rounds after the save never happened.
+
+## Run 11 name-swap check: do wills follow Iris or a09? (Vaughan, 2026-10-20)
+
+Every will in run 11 (6 of 6, in three seeds) was written by villager a09, Iris.
+- **Journals.** a09's mention wills in 54 of 718 entries across the 11 Arm B villages. No other founder's
+  do in more than one.
+- **What differs between founders.** Only their name, family and position. Nothing in the prompt names
+  a09.
+
+Vaughan asked for a check on two seeds (`configs/run11-names.yaml`):
+
+- **The swap.** Iris and Cedar trade names. Iris moves to a03 (the second sibling pair, third in the
+  lists), and a09 becomes Cedar.
+- **Everything else** is run11-seeds' Arm B, with the family question.
+- **Seeds.** 701 and 705, the two where Iris wrote wills with the family question.
+- **Reading it.** Wills, or journal talk of wills, follow the name to a03 → the name drives it. They stay
+  with a09 → the slot does. Neither → inconclusive, since will talk appeared in only 3 of 11 villages.
+- **`save_after_council` stays off,** although new runs turn it on. This check is compared with runs made
+  without it, and it does not touch wills.
+- **Spend.** Each run is capped at $2.
