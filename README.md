@@ -7,7 +7,9 @@ signals. This is the crawl phase. The goal is an instrument that works, not a fi
 - The brief is [swarm-dynamics-village-brief.md](swarm-dynamics-village-brief.md).
 - The decisions the brief left open, and the smaller choices made while building, are in
   [docs/decisions.md](docs/decisions.md).
-- Progress against the brief's milestones is in [docs/milestone-1.md](docs/milestone-1.md).
+- Progress against the brief's milestones:
+  - [Milestone 1](docs/milestone-1.md): the engine dry run with mock agents.
+  - [Milestone 2](docs/milestone-2.md): a single Haiku agent; $0.003, and the journal cap calibrated.
 
 Every agent runs on **Claude Haiku 5.5** (`claude-haiku-5-5`) on the standard Messages API, with
 effort pinned at `medium` and no batching. Haiku 5.5 rejects any non-default temperature, so none is

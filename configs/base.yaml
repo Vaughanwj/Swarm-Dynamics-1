@@ -36,7 +36,7 @@ comms:
 
 journal:
   cap_tokens: 4000
-  chars_per_token: 3.0    # cap enforced as 12,000 characters; calibrate at Milestone 2
+  chars_per_token: 2.4    # measured at Milestone 2 on Haiku 5.5: the cap is 9,600 characters
 
 seed:
   enabled: true

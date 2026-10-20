@@ -44,7 +44,7 @@ class Village:
     def found(self) -> None:
         c = self.cfg
         self.ledger.emit("run_start", arm=c.arm.value, seed=c.seed, run_id=c.run_id, rounds=c.rounds,
-                         channel_order=list(self.channel_order), seed_placement=placements(c),
+                         channel_order=list(self.channel_order), seed_placement=placements(c) if c.seed_artifact.enabled else [],
                          action_types=list(self.types))
         self.ledger.set_world("fertility", economy.initial_fertility(self.rng, c.work), reason="founding")
         families: list[str] = []

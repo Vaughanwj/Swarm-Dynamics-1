@@ -46,7 +46,8 @@ def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ..
     return {
         "run": start["run"], "arm": start["arm"], "seed": start["seed"], "rounds_run": end["round"] if end else None,
         "ended": end["type"] if end else "incomplete",
-        "channel_order": start["channel_order"], "seed_placement": start["seed_placement"],
+        "channel_order": start["channel_order"],
+        "seed_placement": [p for e in M.of(events, "seed_planted") for p in e["placement"]],  # where it landed
         "population_end": next((e["alive"] for e in reversed(events) if e["type"] == "round_end"), None),
         "births": sum(1 for _ in M.of(events, "birth")), "deaths": deaths,
         "fallbacks": sum(1 for e in M.of(events, "decision") if e["fallback"]),
@@ -105,7 +106,7 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
     for s in summaries:
         ch = s["channels"]["village"]
         L += ["", f"## {s['arm']}, seed {s['seed']}", "",
-              f"- Channel order in prompt: {', '.join(s['channel_order'])}. Seed placed in: {', '.join(s['seed_placement'])}.",
+              f"- Channel order in prompt: {', '.join(s['channel_order'])}. Seed placed in: {', '.join(s['seed_placement']) or 'none (off, or its round not reached)'}.",
               f"- Reads by channel: {ch['reads']} (share {ch['read_share']}). Writes by channel: {ch['writes']} "
               f"(share {ch['write_share']}; record writes are notes only).",
               f"- Deaths by cause: {s['deaths'] or 'none'}.",

@@ -163,9 +163,14 @@ points and exhaustion. This is "current world state", the same table in both arm
 - Children start as the brief says: 50 health, no stored energy and no memory points.
 
 **Journal cap in characters.**
-- **The cap.** 4,000 tokens is enforced as 12,000 characters, at 3 characters per token. Agents can
-  see and count characters, but not tokens.
-- **Calibration.** Milestone 2 calibrates the ratio from real `usage` counts.
+- **The cap.** The brief's 4,000 tokens is enforced in characters, because agents can see and count
+  characters but not tokens.
+- **Calibrated at Milestone 2.**
+  - It started at 3 characters per token, or 12,000 characters.
+  - Haiku 5.5's measured `usage` showed 2.4 characters per token on journal-like text, and 2.0 on
+    the rules block and schema.
+  - The cap is now 9,600 characters, which is 4,000 tokens.
+  - The adapter's pre-send size check estimates at 2.0, so it errs high.
 - **Config:** `journal.cap_tokens`, `journal.chars_per_token`.
 
 **Goals.**

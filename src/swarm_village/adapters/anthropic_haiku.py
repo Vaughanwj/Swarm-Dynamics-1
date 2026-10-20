@@ -52,7 +52,7 @@ class AnthropicHaikuAdapter:
         workspace_id: str | None = None,
         budget_usd: float | None = None,
         prices: dict | None = None,
-        chars_per_token: float = 3.0,
+        chars_per_token: float = 2.0,  # for the pre-send size check: errs high (Milestone 2 measured 2.0 to 2.4)
         max_prompt_tokens: int = 95_000,
         near_miss_tokens: int = 80_000,
         log_prompts: bool = False,

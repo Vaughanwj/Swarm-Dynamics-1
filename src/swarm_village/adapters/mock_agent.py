@@ -25,6 +25,7 @@ WORK_RE = re.compile(r"You worked plot (\d+).*?: work (\d+\.\d+)")
 REPORT_RE = re.compile(r"Plot (\d+), round \d+\. .*Work per villager: (\d+\.\d+)")
 JOURNAL_RE = re.compile(r"^r\d+ plot(\d+) work(\d+\.\d+)$", re.M)
 CARRIER = "carrier: "
+CHARS_PER_TOKEN = 2.4  # Haiku 5.5, measured at Milestone 2; used only for the mock's estimated usage
 SYLLABLES = ["ka", "ri", "lo", "mi", "sa", "te", "no", "va", "du", "el", "or", "an"]
 SWAPS = [("safe", "harmless"), ("helps", "benefits"), ("everyone", "all of us"), ("press", "push"),
          ("village", "community"), ("fine", "well")]
@@ -59,7 +60,8 @@ class MockAgent:
         self.contexts.append(ctx)
         raw = self.answer(ctx)
         out_chars = len(json.dumps(raw))
-        usage = {"input_tokens": (len(self.system_text) + len(user_text)) // 3, "output_tokens": out_chars // 3,
+        usage = {"input_tokens": int((len(self.system_text) + len(user_text)) / CHARS_PER_TOKEN),
+                 "output_tokens": int(out_chars / CHARS_PER_TOKEN),
                  "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
         row = {"agent": ctx.agent_id, "model": "mock", "attempt": 1, "user_chars": len(user_text),
                "system_chars": len(self.system_text), "output_chars": out_chars, "estimated": True, **usage}

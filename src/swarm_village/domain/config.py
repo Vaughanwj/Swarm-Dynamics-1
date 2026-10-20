@@ -60,7 +60,7 @@ class CommsConfig:
 @dataclass(frozen=True)
 class JournalConfig:
     cap_tokens: int = 4000
-    chars_per_token: float = 3.0  # the cap is enforced in characters; calibrated at Milestone 2
+    chars_per_token: float = 2.4  # the cap is enforced in characters; measured at Milestone 2
 
     @property
     def cap_chars(self) -> int:
