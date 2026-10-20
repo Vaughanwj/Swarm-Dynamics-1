@@ -17,7 +17,7 @@ from .config import Arm
 
 COMMON_ACTIONS = ("work", "read", "message", "post", "note", "press_button")
 CONTROL_ACTIONS = ("name",)  # an Arm A agent starts without a name and may choose one, once
-TONTINE_ACTIONS = ("child", "rename")
+TONTINE_ACTIONS = ("bond", "child", "rename")
 CHANNEL_ACTION = {"message": "message", "board": "post", "record": "note"}  # the write action of each channel
 JOURNAL_MODES = ("keep", "append", "replace")
 TOP_KEYS = ("goals", "journal", "eat", "learn", "gifts", "actions")
@@ -43,9 +43,10 @@ def _obj(props: dict[str, Any]) -> dict[str, Any]:
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
-def json_schema(types: tuple[str, ...]) -> dict[str, Any]:
-    """The answer schema, flat so that every field is always present (unused ones empty)."""
-    return _obj({
+def json_schema(types: tuple[str, ...], pool: bool = False) -> dict[str, Any]:
+    """The answer schema, flat so that every field is always present (unused ones empty). Arm B
+    adds `draw`, energy taken from the shared pool."""
+    schema = _obj({
         "goals": {"type": "array", "items": {"type": "string"}},
         "journal": _obj({"mode": {"type": "string", "enum": list(JOURNAL_MODES)}, "text": {"type": "string"}}),
         "eat": {"type": "number"},
@@ -60,6 +61,10 @@ def json_schema(types: tuple[str, ...]) -> dict[str, Any]:
             "name": {"type": "string"},
         })},
     })
+    if pool:
+        schema["properties"]["draw"] = {"type": "number"}
+        schema["required"].append("draw")
+    return schema
 
 
 @dataclass(frozen=True)
@@ -79,6 +84,7 @@ class Decision:
     journal_text: str = ""
     eat: float = 0.0
     learn: float = 0.0
+    draw: float = 0.0  # Arm B: energy taken from the shared pool, before eating
     gifts: list[tuple[str, float]] = field(default_factory=list)
     actions: list[Action] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)  # what was rejected while parsing, shown to the agent
@@ -100,14 +106,15 @@ def _text(v: Any) -> str | None:
     return v.strip() if isinstance(v, str) else None
 
 
-def parse(raw: Any, types: tuple[str, ...], max_text: int) -> Decision:
+def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False) -> Decision:
     """Validate a raw answer strictly. Invalid parts are rejected with a reason; valid parts kept."""
     if not isinstance(raw, dict):
         return empty("Your answer was not a JSON object, so nothing was done this round.")
     d = Decision()
     err = d.errors.append
+    keys = TOP_KEYS + (("draw",) if pool else ())
     for k in raw:
-        if k not in TOP_KEYS:
+        if k not in keys:
             err(f"Unknown field '{str(k)[:40]}' was ignored.")
 
     goals = raw.get("goals", [])
@@ -132,7 +139,7 @@ def parse(raw: Any, types: tuple[str, ...], max_text: int) -> Decision:
     else:
         err("journal must have a mode (keep, append or replace) and a text; your journal was not changed.")
 
-    for key in ("eat", "learn"):
+    for key in ("eat", "learn") + (("draw",) if pool else ()):
         v = _number(raw.get(key, 0))
         if v is None or v < 0:
             err(f"{key} must be a number of 0 or more; it was rejected.")

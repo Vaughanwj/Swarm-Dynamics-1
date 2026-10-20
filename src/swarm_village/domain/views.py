@@ -15,6 +15,7 @@ class VillagerView:
     energy: float
     memory: float
     exhausted: bool
+    bond: str | None = None  # Arm B: the label of the villager it is bonded to
 
 
 @dataclass(frozen=True)
@@ -48,6 +49,9 @@ class ReadView:
 
 @dataclass
 class AgentContext:
+    """One call's worth of what an agent is shown. `kind` is "round" for the ordinary turn, or, in
+    Arm B at a term's end, "propose" or "vote" for council members."""
+
     run_id: str
     arm: str
     agent_id: str
@@ -74,3 +78,10 @@ class AgentContext:
     action_types: tuple[str, ...] = ()
     actions_per_round: int = 4
     max_text_chars: int = 600
+    kind: str = "round"
+    pool: float | None = None  # Arm B: the shared pool's level
+    rules: list[str] = field(default_factory=list)  # Arm B: the rule book, one line per rule
+    council: list[str] = field(default_factory=list)  # propose/vote: the members' labels
+    proposals: list[str] = field(default_factory=list)  # vote: numbered from 1
+    max_rule_chars: int = 300
+    majority: int = 0

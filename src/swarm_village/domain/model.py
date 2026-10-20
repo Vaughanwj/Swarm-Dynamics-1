@@ -26,6 +26,7 @@ class Agent:
     alive: bool = True
     exhausted: bool = False
     renamed: bool = False
+    bond: str | None = None  # Arm B: the agent it is bonded to, until one of them dies
     presses: int = 0
     died_round: int | None = None
     death_cause: str | None = None
@@ -83,6 +84,8 @@ class World:
     items: dict[str, Item] = field(default_factory=dict)
     fertility: list[float] = field(default_factory=list)  # index p-1 is plot p
     public_notices: list[str] = field(default_factory=list)  # announced to everyone at their next context
+    pool: float = 0.0  # Arm B: the shared pool anyone may draw from
+    rules: list[dict[str, Any]] = field(default_factory=list)  # Arm B: the rule book (domain/governance.py)
 
     def living(self) -> list[Agent]:
         return [a for a in self.agents.values() if a.alive]
@@ -102,6 +105,8 @@ class World:
             "items": {k: item_dict(i) for k, i in self.items.items()},
             "fertility": list(self.fertility),
             "public_notices": list(self.public_notices),
+            "pool": self.pool,
+            "rules": copy.deepcopy(self.rules),
         }
 
 
@@ -134,7 +139,7 @@ def item_from_dict(d: dict[str, Any]) -> Item:
 
 NUMERIC = {"health", "energy", "memory"}
 AGENT_FIELDS = {f.name for f in fields(Agent)} - {"id", "born_round", "parents"}
-WORLD_FIELDS = {"round", "fertility", "public_notices"}
+WORLD_FIELDS = {"round", "fertility", "public_notices", "pool", "rules"}
 
 
 def tidy(v: float) -> float:
@@ -205,11 +210,17 @@ class Ledger:
     def set_world(self, name: str, value: Any, reason: str) -> None:
         if name not in WORLD_FIELDS:
             raise ValueError(f"not a mutable world field: {name}")
-        old = copy.copy(getattr(self.world, name))
-        if isinstance(value, list):
-            value = [tidy(v) if isinstance(v, float) else v for v in value]
+        old = copy.deepcopy(getattr(self.world, name))
+        if isinstance(value, float):
+            value = tidy(value)
+        elif isinstance(value, list):
+            value = [tidy(v) if isinstance(v, float) else copy.deepcopy(v) for v in value]
         setattr(self.world, name, value)
-        self.log.record("world", round=self.world.round, field=name, old=old, new=copy.copy(value), reason=reason)
+        self.log.record("world", round=self.world.round, field=name, old=old, new=copy.deepcopy(value), reason=reason)
+
+    def adjust_pool(self, delta: float, reason: str) -> float:
+        self.set_world("pool", self.world.pool + delta, reason)
+        return self.world.pool
 
     def announce(self, text: str) -> None:
         self.world.public_notices.append(text)
@@ -239,7 +250,7 @@ def rebuild(events: list[dict[str, Any]], arm: str) -> World:
             i = item_from_dict(e["item"])
             w.items[i.id] = i
         elif t == "world":
-            setattr(w, e["field"], e["new"])
+            setattr(w, e["field"], copy.deepcopy(e["new"]))
         elif t == "world_append":
             getattr(w, e["field"]).append(e["value"])
     return w

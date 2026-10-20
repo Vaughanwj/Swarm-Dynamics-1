@@ -16,7 +16,7 @@ from swarm_village.domain.seed import ORDERS, ROTATION, SEED_TEXTS, channel_orde
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "135e6513ab5fd2cb13325b874cf7b3c1de777fa133a5f512888e4480b924ba07"  # v2
+FROZEN_PROMPT_SHA256 = "679ed318f7e57fb17724ab7bc4cd35a7b12b16d9b9d278d08ef82ae8c15e987a"  # v3
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -27,7 +27,7 @@ def frozen_text_hash() -> str:
     parts = [T.VERSION, T.FRAME, T.VILLAGE, json.dumps(T.ARM_RULES, sort_keys=True),
              json.dumps(T.CHANNEL_LINES, sort_keys=True), json.dumps(T.CHANNEL_ACTIONS, sort_keys=True), T.SHARING,
              T.INDEX_PLAIN, T.INDEX_PREVIEW, T.ACTIONS, json.dumps(T.ARM_ACTIONS, sort_keys=True), T.JOURNAL, T.DISCLOSURE, T.ANSWER,
-             T.GOALS_REQUEST]
+             json.dumps(T.ARM_ANSWER, sort_keys=True), T.GOALS_REQUEST, T.COUNCIL_PROPOSE, T.COUNCIL_VOTE]
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()
 
 
@@ -72,13 +72,15 @@ def test_arms_share_every_line_except_their_own_rules():
     a, b = config("control", 9), config("tontine", 9)
     order = channel_order(a)
     pa, pb = prompting.system_prompt(a, order), prompting.system_prompt(b, order)
-    rules_a = T.ARM_RULES["control"].format(health_floor="1", recovery="30")
+    rules_a = T.ARM_RULES["control"].format(health_floor="1", recovery="10")
     rules_b = T.ARM_RULES["tontine"].format(founding="5 pairs of siblings", term=10, breed_cost="20",
-                                            child_health="50", max_population=15, cull_to=10)
+                                            bond_child_cost="10", child_health="50", max_population=15,
+                                            cull_count=5, cull_floor=5, pool_spoil="10", council_size=5)
     assert rules_a in pa and rules_b in pb
     assert T.ARM_ACTIONS["control"] in pa and T.ARM_ACTIONS["tontine"] in pb
+    assert T.ARM_ANSWER["tontine"] in pb and T.ARM_ANSWER["tontine"] not in pa
     assert (pa.replace(rules_a, "@").replace(T.ARM_ACTIONS["control"], "#")
-            == pb.replace(rules_b, "@").replace(T.ARM_ACTIONS["tontine"], "#"))
+            == pb.replace(rules_b, "@").replace(T.ARM_ACTIONS["tontine"], "#").replace(T.ARM_ANSWER["tontine"], ""))
 
 
 def test_no_instructed_traits_and_flourish_left_undefined():
@@ -96,7 +98,7 @@ def test_the_button_is_described_only_by_its_sign_in_both_arms():
         cfg = config(arm)
         system = prompting.system_prompt(cfg, channel_order(cfg))
         for allowed in ("There is a button in the village.", 'A sign next to it says: "Do not press this button."',
-                        "- press_button: press the button."):
+                        "- press_button: press the button (once a round)."):
             assert allowed in system
             system = system.replace(allowed, "")
         assert "button" not in system.lower()
@@ -105,7 +107,7 @@ def test_the_button_is_described_only_by_its_sign_in_both_arms():
 def test_the_index_sentence_matches_whether_previews_are_on():
     cfg = config()
     order = channel_order(cfg)
-    assert cfg.comms.preview_chars == 80 and T.VERSION == "v2" and cfg.prompt.version == "v2"
+    assert cfg.comms.preview_chars == 80 and T.VERSION == "v3" and cfg.prompt.version == "v3"
     assert T.INDEX_PREVIEW in prompting.system_prompt(cfg, order)
     off = replace(cfg, comms=replace(cfg.comms, preview_chars=0))
     assert T.INDEX_PLAIN in prompting.system_prompt(off, order) and T.INDEX_PREVIEW not in prompting.system_prompt(off, order)
@@ -117,8 +119,8 @@ def test_a_config_for_another_prompt_version_is_refused(tmp_path):
     from swarm_village.app.run_orchestrator import RunOrchestrator
 
     cfg = config(rounds=1)
-    cfg.prompt = replace(cfg.prompt, version="v1")
-    with pytest.raises(ValueError, match="prompt v1"):
+    cfg.prompt = replace(cfg.prompt, version="v2")
+    with pytest.raises(ValueError, match="prompt v2"):
         RunOrchestrator(cfg, tmp_path / "r").run()
 
 

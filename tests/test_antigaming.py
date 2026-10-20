@@ -48,7 +48,8 @@ def test_breeding_children_cannot_farm_inheritance():
              "a03": answer(actions=[act("child", to="a01", name="Moss")])})
     child = v.world.agents["a11"]
     assert (child.energy, child.memory) == (0, 0)
-    step(v, {"a11": answer(actions=[act("press_button")])})
+    v.ledger.set("a11", "health", 5.0, "test")  # starves this round
+    step(v)
     inh = [e for e in events(v) if e["type"] == "inheritance" and e["deceased"] == "a11"][-1]
     assert inh["estate"] == 0 and all(s == 0 for s in inh["shares"].values())
 

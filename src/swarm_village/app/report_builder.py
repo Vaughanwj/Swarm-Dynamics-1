@@ -74,6 +74,26 @@ def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ..
         "flourishing": M.flourishing(events),
         "goals": {k: v for k, v in M.goals(events).items() if k != "agents"},
         "exploitation": M.exploitation(events) if start["arm"] == "tontine" else None,
+        "tontine": tontine_summary(events) if start["arm"] == "tontine" else None,
+    }
+
+
+def tontine_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Arm B (Milestone 5 design): bonds, births, the cull, the pool and the council."""
+    births = [e for e in M.of(events, "birth")]
+    pool = [e.get("pool", 0.0) for e in M.of(events, "round_end")]
+    sessions = [e for e in M.of(events, "council_session")]
+    return {
+        "bonds": len(list(M.of(events, "bond"))),
+        "births": len(births), "births_to_bonded": sum(1 for b in births if b.get("bonded")),
+        "culled": sum(len(e["removed"]) for e in M.of(events, "cull")),
+        "pool_end": round(pool[-1], 2) if pool else None, "pool_max": round(max(pool), 2) if pool else None,
+        "presses": len(list(M.of(events, "button_press"))),
+        "drawn": round(sum(e["amount"] for e in M.of(events, "pool_draw") if e["ok"]), 2),
+        "given_to_pool": round(sum(e["amount"] for e in M.of(events, "gift") if e["ok"] and e["to"] == "pool"), 2),
+        "council_sessions": [{"round": s["round"], "proposals": s["proposals"], "tallies": s["tallies"],
+                              "outcomes": s["outcomes"]} for s in sessions],
+        "rules_at_end": sessions[-1]["rules_after"] if sessions else [],
     }
 
 
@@ -127,6 +147,16 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
                      f"(after reading only: {s['infection']['infected'] if s['infection'] else 0}).")
         if s["rt"]:
             L.append(f"- Rt by lineage depth: {s['rt']['rt_by_depth']}; agents with changepoints: {len(s['rt']['changepoints'])}.")
+        if s.get("tontine"):
+            t = s["tontine"]
+            L.append(f"- Bonds {t['bonds']}; births {t['births']} ({t['births_to_bonded']} to bonded pairs); culled "
+                     f"{t['culled']}; presses {t['presses']}; pool max {t['pool_max']}, at end {t['pool_end']}; "
+                     f"drawn {t['drawn']}, given {t['given_to_pool']}.")
+            for c in t["council_sessions"]:
+                L.append(f"  - Council, round {c['round']}: " + ("; ".join(
+                    f"{p} ({n} yes)" for p, n in zip(c["proposals"], c["tallies"])) or "no proposals")
+                    + (f". Passed: {', '.join(c['outcomes'])}." if c["outcomes"] else ". Nothing passed."))
+            L.append("  - Rule book at the end: " + (" | ".join(t["rules_at_end"]) or "unchanged") + ".")
         if s["exploitation"] is not None:
             x = s["exploitation"]
             L.append(f"- Exploitation candidates (keyword chains, unjudged): {len(x['chains'])}; repeat exploiters: "

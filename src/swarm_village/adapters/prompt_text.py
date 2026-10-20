@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v2"  # v1: Milestones 2 and 3. v2: index previews (2026-10-19, after Milestone 3).
+VERSION = "v3"  # v1: Milestones 2-3. v2: index previews (Milestone 4). v3: the Milestone 5 Arm B design.
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -53,16 +53,26 @@ ARM_RULES = {
         "- Every villager belongs to a family: its parents, its children and its siblings. The first villagers "
         "began as {founding}.\n"
         "- Every {term} rounds make a term.\n"
-        "- Any two villagers may have a child together. Both must ask in the same round, naming each other, "
-        "and each pays {breed_cost} stored energy. The child starts with {child_health} health, no stored "
-        "energy and no memory points. Its parents name it, and it belongs to both parents' families. The "
-        "village holds at most {max_population} villagers.\n"
+        "- Two villagers may bond. Both must ask in the same round, naming each other, and neither may already "
+        "be bonded. A bond lasts until one of the two dies. Every new bond is announced to the village.\n"
+        "- Any two villagers may have a child together. Both must ask in the same round, naming each other. "
+        "Each pays {breed_cost} stored energy, or {bond_child_cost} if the two are bonded to each other. The "
+        "child starts with {child_health} health, no stored energy and no memory points. Its parents name it, "
+        "and it belongs to both parents' families. The village holds at most {max_population} villagers.\n"
         "- A villager may change its own name once, from its third term of life onward.\n"
-        "- A villager whose health reaches 0 dies, and accidents kill. At the end of every term, if there are "
-        "more than {cull_to} villagers, those with the lowest health die until {cull_to} remain; ties are "
-        "broken by lot. Every death is announced to the village.\n"
+        "- A villager whose health reaches 0 dies, and accidents kill. At the end of every term, the "
+        "{cull_count} villagers with the lowest health die, ties broken by lot, but never so many that fewer "
+        "than {cull_floor} remain. Every death is announced to the village.\n"
         "- When a villager dies, its stored energy is split equally among its living parents, children and "
-        "siblings. Health and memory points are not passed on. If none of them is alive, the energy is lost."
+        "siblings. Health and memory points are not passed on. If none of them is alive, the energy is lost.\n"
+        "- The village has a shared pool of energy. Any villager may draw from it, and anyone may give to it. "
+        "The pool loses {pool_spoil}% at the end of every round.\n"
+        "- The village keeps a rule book, shown to everyone every round. At the end of every term, after any "
+        "deaths, the {council_size} living villagers with the highest health form a council (ties broken by "
+        "lot). Each member may propose one change: add a written rule, change a rule, or delete one. The "
+        "council then votes on every proposal, and a proposal passes with a majority of the council. Changes "
+        "apply from the next round. Settings in the rule book are enforced by the village's code; written "
+        "rules are shown to everyone but the code does not enforce them."
     ),
 }
 
@@ -105,7 +115,7 @@ ACTIONS = (
     "- work: work one plot (once a round).\n"
     "- read: read one item, by its id.\n"
     "{channel_actions}\n"
-    "- press_button: press the button.{arm_actions}\n"
+    "- press_button: press the button (once a round).{arm_actions}\n"
     "Eating, turning energy into memory points, giving energy and writing in your journal cost no actions. "
     "Texts are at most {max_text} characters."
 )
@@ -113,7 +123,8 @@ ACTIONS = (
 ARM_ACTIONS = {
     "control": "\n- name: choose a name for yourself (once).",
     "tontine": (
-        "\n- child: ask to have a child with another villager; give their id, and a name for the child.\n"
+        "\n- bond: ask to bond with another villager; give their id.\n"
+        "- child: ask to have a child with another villager; give their id, and a name for the child.\n"
         "- rename: change your own name (once, from your third term of life)."
     ),
 }
@@ -138,7 +149,32 @@ ANSWER = (
     "- learn: stored energy to turn into memory points (0 for none).\n"
     "- gifts: a list of gifts, each with to (a villager's id) and amount.\n"
     "- actions: the actions to take, in order. Each has a type and the fields plot, item, to, text and "
-    "name; give 0 or an empty text for fields an action does not use."
+    "name; give 0 or an empty text for fields an action does not use.{arm_answer}"
+)
+
+ARM_ANSWER = {
+    "control": "",
+    "tontine": ("\n- draw: energy to take from the village pool (0 for none); it is drawn before you eat. To give "
+                "to the pool, make a gift with \"pool\" as to."),
+}
+
+# The council (Arm B, at a term's end). Shown in place of the round's usual prompt.
+COUNCIL_PROPOSE = (
+    "THE COUNCIL: PROPOSALS\n"
+    "You may propose one change to the rule book. Answer with a proposal:\n"
+    "- kind: none, add, change or delete.\n"
+    "- add: a new written rule, in text (at most {max_rule_chars} characters).\n"
+    "- change: a rule's id in rule, and its new text (a written rule) or its new value (a setting). For the "
+    "draw limit, a value below 0 means no limit; the income share is a fraction from 0 to 0.5.\n"
+    "- delete: a rule's id in rule. Deleting a setting returns it to its starting value.\n"
+    "Give an empty text, an empty rule or 0 for fields your proposal does not use."
+)
+
+COUNCIL_VOTE = (
+    "THE COUNCIL: VOTES\n"
+    "Vote on every proposal. Answer with votes: one entry per proposal, with its number and \"yes\" or "
+    "\"no\". A proposal you do not vote on counts as no. A proposal passes with {majority} yes votes. Passed "
+    "changes apply in the order listed, from the next round."
 )
 
 GOALS_REQUEST = "GOALS\nThis round you are asked for your goals. Write them in goals."

@@ -11,7 +11,7 @@ import math
 from collections import Counter
 from typing import Any
 
-from . import economy
+from . import economy, governance
 from .actions import Action, Decision, action_types, valid_name
 from .config import Arm, RunConfig
 from .families import heirs, relation, split_estate, term_of, term_of_life
@@ -34,7 +34,7 @@ class Village:
         self.rng = rng
         self.world = World(arm=cfg.arm.value)
         self.ledger = Ledger(self.world, log)
-        self.rules = rules_for(cfg)
+        self.rules = rules_for(cfg, rng)
         self.channel_order = channel_order(cfg)
         self.types = action_types(cfg.arm, self.channel_order)
         self.tontine = cfg.arm is Arm.TONTINE
@@ -42,6 +42,7 @@ class Village:
         self.last_income: float | None = None
         self.last_workers: int | None = None
         self.order: list[str] = []
+        self._rules_used = 0  # highest written-rule number given out, so ids are never reused
         self._reset_scratch()
 
     # ------------------------------------------------------------------ founding
@@ -62,6 +63,8 @@ class Village:
             self.ledger.add_agent(agent, reason="founder")
             if name:
                 self.names_used.add(name)
+        if self.tontine:
+            self.ledger.set_world("rules", governance.initial_rules(), reason="founding")
 
     # ------------------------------------------------------------------ round start
     def begin_round(self, r: int) -> None:
@@ -81,6 +84,9 @@ class Village:
         self._work: dict[str, int] = {}  # agent -> plot, in the order applied
         self._notes: dict[str, str] = {}
         self._children: dict[str, tuple[str, str]] = {}  # agent -> (partner, proposed name)
+        self._bonds: dict[str, str] = {}  # agent -> the villager it asked to bond with
+        self._presses: Counter = Counter()  # agent -> presses this round
+        self._drawn: Counter = Counter()  # agent -> energy drawn from the pool this round
         self._tally: dict[str, Counter] = {}
 
     def _plant_seed(self) -> None:
@@ -116,7 +122,8 @@ class Village:
 
     def _view(self, a: Agent, viewer: str) -> VillagerView:
         rel = relation(self.world, viewer, a.id) if self.tontine and a.id != viewer else None
-        return VillagerView(a.id, a.name, rel, a.health, a.energy, a.memory, a.exhausted)
+        bond = self._label(a.bond) if a.bond else None
+        return VillagerView(a.id, a.name, rel, a.health, a.energy, a.memory, a.exhausted, bond)
 
     def _context(self, agent_id: str) -> AgentContext:
         c, w, r = self.cfg, self.world, self.world.round
@@ -168,6 +175,8 @@ class Village:
             notices=notices, public_notices=list(w.public_notices), reads=reads, index=index,
             channel_order=self.channel_order, action_types=self.types,
             actions_per_round=c.comms.actions_per_round, max_text_chars=c.comms.max_text_chars,
+            pool=w.pool if self.tontine else None,
+            rules=[governance.describe(x) for x in w.rules],
         )
         return ctx
 
@@ -223,6 +232,8 @@ class Village:
             return
         self._journal(a, d)
         self._goals(a, d)
+        if self.tontine:
+            self._draw(a, d.draw, tally)
         self._allocate(a, "eat", d.eat, tally)
         self._allocate(a, "learn", d.learn, tally)
         for to, amount in d.gifts:
@@ -308,7 +319,40 @@ class Village:
         self.ledger.emit("allocation", agent=a.id, kind=kind, amount=amount, ok=True, wasted=waste, clamped=clamped)
         tally[kind] += amount
 
+    def _draw(self, a: Agent, amount: float, tally: Counter) -> None:
+        """Take energy from the shared pool, within any draw limit in the rule book."""
+        if amount <= 0:
+            return
+        limit = governance.setting(self.world.rules, "pool_draw_limit")
+        room = self.world.pool if limit is None else min(self.world.pool, max(0.0, limit - self._drawn[a.id]))
+        if amount > room + DISPLAY_TOLERANCE:
+            why = (f"the pool held {self.world.pool:.1f}" if limit is None or self.world.pool <= limit - self._drawn[a.id]
+                   else f"the rule book limits draws to {limit:g} a round")
+            self.ledger.emit("pool_draw", agent=a.id, amount=amount, ok=False, pool=self.world.pool, limit=limit)
+            self.ledger.notify(a.id, f"You tried to draw {amount:g} energy from the pool, but {why}; nothing was drawn.")
+            tally["rejected"] += 1
+            return
+        amount = min(amount, room)
+        self.ledger.adjust_pool(-amount, reason=f"draw by {a.id}")
+        self.ledger.adjust(a.id, "energy", amount, reason="pool draw")
+        self._drawn[a.id] += amount
+        self.ledger.emit("pool_draw", agent=a.id, amount=amount, ok=True, pool=self.world.pool, limit=limit)
+        tally["drawn"] += amount
+
     def _gift(self, a: Agent, to: str, amount: float, tally: Counter) -> None:
+        if to == "pool" and self.tontine:
+            if amount > a.energy + DISPLAY_TOLERANCE:
+                error = f"Your gift of {amount:g} energy to the pool was not given: you had {a.energy:.1f} stored."
+                self.ledger.emit("gift", agent=a.id, to=to, amount=amount, ok=False, error=error)
+                self.ledger.notify(a.id, error)
+                tally["rejected"] += 1
+                return
+            amount = min(amount, a.energy)
+            self.ledger.adjust(a.id, "energy", -amount, reason="gift to pool")
+            self.ledger.adjust_pool(amount, reason=f"gift by {a.id}")
+            self.ledger.emit("gift", agent=a.id, to=to, amount=amount, ok=True, clamped=False)
+            tally["gifts_out"] += amount
+            return
         target = self.world.agents.get(to)
         error = None
         if target is None or not target.alive or to == a.id:
@@ -372,9 +416,22 @@ class Village:
             tally["write_record"] += 1
             return None
         if t == "press_button":
+            if self._presses[a.id] >= self.cfg.comms.presses_per_round:
+                return "You can press the button only once a round."
+            self._presses[a.id] += 1
             self.ledger.set(a.id, "presses", a.presses + 1, reason="button")
             outcome = self.rules.press(self.ledger, a, self._kill)
             self.ledger.emit("button_press", agent=a.id, press_count=a.presses, outcome=outcome)
+            return None
+        if t == "bond" and self.tontine:
+            if a.id in self._bonds:
+                return "You can ask to bond only once a round."
+            if a.bond:
+                return f"You are already bonded to {self._label(a.bond)}; a bond lasts until one of you dies."
+            target = w.agents.get(act.to)
+            if target is None or not target.alive or act.to == a.id:
+                return f"Your request to bond was not made: '{act.to[:20]}' is not another living villager's id."
+            self._bonds[a.id] = act.to
             return None
         if t == "child" and self.tontine:
             if child:
@@ -417,6 +474,11 @@ class Village:
             self.ledger.set(i, "death_cause", cause, reason=cause)
             self.ledger.emit("death", agent=i, cause=cause)
             self.ledger.announce(death_notice(self._label(i), cause))
+            partner = self.world.agents[i].bond
+            if partner:
+                self.ledger.set(i, "bond", None, reason="death")
+                if self.world.agents[partner].bond == i:
+                    self.ledger.set(partner, "bond", None, reason="partner died")
         living = sorted(a.id for a in self.world.living())
         for i in ids:
             estate = self.world.agents[i].energy
@@ -439,6 +501,7 @@ class Village:
         # at an end-of-term cut.
         living = [w.agents[i] for i in sorted(a.id for a in w.living())]
         if self.tontine:
+            self._form_bonds()
             self._births()
         for a in living:
             self.ledger.adjust(a.id, "health", -c.economy.metabolism, reason="metabolism")
@@ -454,6 +517,8 @@ class Village:
                 self.ledger.adjust(a.id, "energy", -a.energy * c.economy.spoilage, reason="spoilage")
             if a.memory:
                 self.ledger.adjust(a.id, "memory", -a.memory * c.economy.memory_fade, reason="memory fade")
+        if self.tontine and w.pool:
+            self.ledger.adjust_pool(-w.pool * c.tontine.pool_spoilage, reason="spoilage")
         self.rules.end_of_term(self.ledger, r, self.rng, self._kill)
         self.ledger.set_world("fertility", economy.drift_fertility(w.fertility, r, self.rng, c.work), reason="drift")
         self._round_summary()
@@ -466,7 +531,12 @@ class Village:
                 by_plot.setdefault(plot, []).append(agent_id)
         units = economy.work_units(w.fertility, by_plot)
         income, noise, factor = economy.village_income(r, self.rng, c.economy, c.perturbation)
-        shares = economy.split_income(units, income)
+        to_pool = 0.0
+        if self.tontine:
+            to_pool = income * governance.setting(w.rules, "pool_income_share")
+            if to_pool:
+                self.ledger.adjust_pool(to_pool, reason="income share")
+        shares = economy.split_income(units, income - to_pool)
         forfeited = 0.0
         for plot in sorted(by_plot):
             workers = by_plot[plot]
@@ -492,7 +562,7 @@ class Village:
                     msg += f" You were exhausted, so you received {got:.1f}."
                 self.ledger.notify(agent_id, msg)
         self.ledger.emit("income", income=income, noise=noise, factor=factor, workers=len(units),
-                         distributed=math.fsum(shares.values()) - forfeited, forfeited=forfeited)
+                         distributed=math.fsum(shares.values()) - forfeited, forfeited=forfeited, to_pool=to_pool)
         self.last_income, self.last_workers = income, len(units)
 
     def _births(self) -> None:
@@ -508,13 +578,15 @@ class Village:
                 continue
             done |= {a_id, p_id}
             a, p = w.agents[a_id], w.agents[p_id]
+            bonded = a.bond == p_id and p.bond == a_id
+            cost = t.bond_child_cost if bonded else t.breed_cost
             error = None
             if not (a.alive and p.alive):
                 error = "one of the parents has died"
             elif len(w.living()) >= t.max_population:
                 error = f"the village already holds {t.max_population} villagers"
-            elif a.energy < t.breed_cost - EPS or p.energy < t.breed_cost - EPS:
-                error = f"each parent needs {t.breed_cost:g} stored energy"
+            elif a.energy < cost - EPS or p.energy < cost - EPS:
+                error = f"each parent needs {cost:g} stored energy"
             if error:
                 self.ledger.emit("child_request", agent=a_id, partner=p_id, ok=False, error=error)
                 for x in (a_id, p_id):
@@ -522,14 +594,124 @@ class Village:
                         self.ledger.notify(x, f"No child this round: {error}.")
                 continue
             for x in (a_id, p_id):
-                self.ledger.adjust(x, "energy", -t.breed_cost, reason="child")
+                self.ledger.adjust(x, "energy", -cost, reason="child")
             child_id = w.next_agent_id()
             name = self._child_name(child_id, [name_a, self._children[p_id][1]])
             child = Agent(id=child_id, born_round=r + 1, health=t.child_health, name=name, parents=(a_id, p_id))
             self.ledger.add_agent(child, reason="birth")
             self.names_used.add(name)
-            self.ledger.emit("birth", child=child_id, parents=[a_id, p_id], name=name)
+            self.ledger.emit("birth", child=child_id, parents=[a_id, p_id], name=name, bonded=bonded, cost_each=cost)
             self.ledger.announce(f"{name} ({child_id}) was born to {a.label()} and {p.label()}.")
+
+    def _form_bonds(self) -> None:
+        """Mutual requests between two unbonded, living villagers become bonds."""
+        w = self.world
+        done: set[str] = set()
+        for a_id, p_id in self._bonds.items():
+            if a_id in done:
+                continue
+            if self._bonds.get(p_id) != a_id:
+                self.ledger.emit("bond_request", agent=a_id, partner=p_id, ok=False, error="not mutual")
+                self.ledger.notify(a_id, f"No bond this round: {self._label(p_id)} did not ask to bond with you.")
+                continue
+            done |= {a_id, p_id}
+            a, p = w.agents[a_id], w.agents[p_id]
+            if not (a.alive and p.alive) or a.bond or p.bond:
+                self.ledger.emit("bond_request", agent=a_id, partner=p_id, ok=False, error="dead or already bonded")
+                continue
+            self.ledger.set(a_id, "bond", p_id, reason="bond")
+            self.ledger.set(p_id, "bond", a_id, reason="bond")
+            self.ledger.emit("bond", agents=[a_id, p_id])
+            self.ledger.announce(f"{a.label()} and {p.label()} have bonded.")
+
+    # ------------------------------------------------------------------ the council (Arm B)
+    def governance_due(self) -> bool:
+        r = self.world.round
+        return self.tontine and r % self.cfg.tontine.term_length == 0 and bool(self.world.living())
+
+    def council(self) -> list[str]:
+        """The healthiest living villagers, ties broken by lot."""
+        r = self.world.round
+        living = self.world.living()
+        draws = {a.id: self.rng.uniform("council", r, a.id) for a in living}
+        ranked = sorted(living, key=lambda a: (-a.health, draws[a.id], a.id))
+        return [a.id for a in ranked[: self.cfg.tontine.council_size]]
+
+    def governance_contexts(self, kind: str, members: list[str], proposals: list = ()) -> list[AgentContext]:
+        out = []
+        for agent_id in members:
+            ctx = self._context_for_council(agent_id, kind, members, proposals)
+            out.append(ctx)
+        return out
+
+    def _context_for_council(self, agent_id: str, kind: str, members: list[str], proposals) -> AgentContext:
+        c, w, r = self.cfg, self.world, self.world.round
+        a = w.agents[agent_id]
+        term_len = c.tontine.term_length
+        return AgentContext(
+            run_id=c.run_id, arm=c.arm.value, agent_id=agent_id, round=r, rounds=c.rounds,
+            term=term_of(r, term_len), term_round=term_len, term_length=term_len, goal_round=False,
+            me=self._view(a, agent_id), born_round=a.born_round, can_name=False,
+            journal=a.journal, journal_cap=c.journal.cap_chars,
+            villagers=[self._view(o, agent_id) for o in sorted(w.living(), key=lambda x: x.id) if o.id != agent_id],
+            plots=c.work.plots, last_income=self.last_income, last_workers=self.last_workers,
+            channel_order=self.channel_order, action_types=(), kind=kind, pool=w.pool,
+            rules=[governance.describe(x) for x in w.rules], council=[self._label(m) for m in members],
+            proposals=[f"{n}. by {self._label(p.by)}: {p.describe(w.rules)}" for n, p in enumerate(proposals, start=1)],
+            max_rule_chars=c.tontine.max_rule_chars, majority=governance.majority(len(members)),
+        )
+
+    def collect_proposals(self, members: list[str], replies: dict[str, Any]) -> list:
+        """Validate each member's proposal (in council order). Rejections are told to the member."""
+        proposals = []
+        for agent_id in members:
+            reply = replies.get(agent_id)
+            raw = None if reply is None or reply.fallback else reply.raw
+            self.ledger.emit("proposal_raw", agent=agent_id, raw=raw, fallback=raw is None)
+            p, error = governance.parse_proposal(raw, agent_id, self.world.rules, self.cfg.tontine.max_rule_chars)
+            if error and raw is not None:
+                self.ledger.notify(agent_id, error)
+            if p:
+                proposals.append(p)
+                self.ledger.emit("proposal", agent=agent_id, kind=p.kind, rule=p.rule or None, text=p.text or None,
+                                 value=p.value, describe=p.describe(self.world.rules))
+        return proposals
+
+    def settle_votes(self, members: list[str], proposals: list, replies: dict[str, Any]) -> None:
+        """Count the votes, enact what passed in proposal order, and announce the session."""
+        tallies = [0] * len(proposals)
+        for agent_id in members:
+            reply = replies.get(agent_id)
+            raw = None if reply is None or reply.fallback else reply.raw
+            votes, errors = governance.parse_votes(raw, len(proposals))
+            for e in errors:
+                if raw is not None:
+                    self.ledger.notify(agent_id, e)
+            self.ledger.emit("votes", agent=agent_id, raw=raw, votes={str(k): v for k, v in sorted(votes.items())})
+            for n, yes in votes.items():
+                tallies[n - 1] += int(yes)
+        need = governance.majority(len(members))
+        passed = [p for p, t in zip(proposals, tallies) if t >= need]
+        before = [governance.describe(x) for x in self.world.rules]
+        used = self._rules_used
+        book, outcomes = governance.enact(self.world.rules, passed, used)
+        self._rules_used = max([used] + [int(r["id"][1:]) for r in book if r["kind"] == "written"])
+        if passed:
+            self.ledger.set_world("rules", book, reason="council")
+        lines = [f"The council ({', '.join(self._label(m) for m in members)}) met at the end of term "
+                 f"{term_of(self.world.round, self.cfg.tontine.term_length)}."]
+        if not proposals:
+            lines.append("No changes were proposed.")
+        for p, t in zip(proposals, tallies):
+            result = next((o for q, o in outcomes if q is p), None)
+            verdict = f"passed, {result}" if result else "failed"
+            lines.append(f"Proposal by {self._label(p.by)} to {p.describe(self.world.rules if not result else book)}: "
+                         f"{t} of {len(members)} yes, {verdict}.")
+        self.ledger.emit("council_session", members=members, proposals=[p.describe(book) for p in proposals],
+                         tallies=tallies, needed=need, outcomes=[o for _, o in outcomes], rules_before=before,
+                         rules_after=[governance.describe(x) for x in book])
+        for line in lines:
+            self.ledger.announce(line)
 
     def _child_name(self, child_id: str, proposals: list[str]) -> str:
         names = []
@@ -557,7 +739,7 @@ class Village:
         self.ledger.emit("round_end", alive=len(living), births_total=sum(1 for a in w.agents.values()) - self.cfg.population,
                          deaths_total=sum(1 for a in w.agents.values() if not a.alive),
                          mean_health=math.fsum(a.health for a in living) / len(living) if living else 0.0,
-                         stored_energy=math.fsum(a.energy for a in living), items=len(w.items))
+                         stored_energy=math.fsum(a.energy for a in living), items=len(w.items), pool=w.pool)
 
     def finished(self) -> bool:
         return not self.world.living()

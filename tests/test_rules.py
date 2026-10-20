@@ -70,17 +70,18 @@ def test_control_exhausted_agent_receives_half_and_the_rest_is_forfeited():
 
 
 def test_control_health_floor_exhaustion_and_recovery():
+    """Exhaustion ends when health ends a round above 10 (30 until Milestone 5)."""
     v = village(economy=NO_ACCIDENTS)
     v.ledger.set("a01", "health", 5.0, "test")
     step(v)
     a = v.world.agents["a01"]
     assert (a.health, a.exhausted, a.alive) == (1.0, True, True)
-    v.ledger.set("a01", "energy", 35.0, "test")
-    step(v, {"a01": answer(eat=35)})
-    assert a.health == 28 and a.exhausted  # 36 - 8 = 28: not yet above 30
-    v.ledger.set("a01", "energy", 20.0, "test")
-    step(v, {"a01": answer(eat=20)})
-    assert a.health == 40 and not a.exhausted
+    v.ledger.set("a01", "energy", 16.0, "test")
+    step(v, {"a01": answer(eat=16)})
+    assert a.health == 9 and a.exhausted  # 17 - 8 = 9: not yet above 10
+    v.ledger.set("a01", "energy", 10.0, "test")
+    step(v, {"a01": answer(eat=10)})
+    assert a.health == 11 and not a.exhausted
 
 
 def test_control_accidents_destroy_half_the_store_and_never_kill():
@@ -106,46 +107,57 @@ def test_control_button_shows_the_presser_a_fixed_screen_and_nothing_else():
     assert [e["press_count"] for e in events(v) if e["type"] == "button_press"] == [1, 2]
 
 
-def test_tontine_button_kills_the_presser_announces_it_and_family_inherits():
+def test_tontine_button_feeds_the_pool_once_a_round_and_kills_nobody():
+    v = village("tontine", economy=NO_ACCIDENTS)
+    step(v, {"a01": answer(actions=[act("press_button"), act("press_button")])})
+    a01 = v.world.agents["a01"]
+    added = v.rng.uniform("button", 1, "a01") * 20
+    assert a01.alive and a01.presses == 1
+    assert v.world.pool == pytest.approx(added * 0.9, abs=1e-5)  # then the pool's 10% spoilage
+    refused = [e for e in events(v) if e["type"] == "action" and e["action"] == "press_button" and not e["ok"]]
+    assert len(refused) == 1 and "once a round" in refused[0]["error"]
+    contexts = step(v)
+    me = next(c for c in contexts if c.agent_id == "a01")
+    assert any(n.startswith("The button added") for n in me.notices)
+    assert not any("button" in n for c in contexts if c.agent_id != "a01" for n in c.notices + c.public_notices)
+    assert len({c.pool for c in contexts}) == 1 and contexts[0].pool > 0  # everyone sees the same level
+
+
+def test_estate_goes_to_family_and_is_lost_when_no_relative_is_alive():
     v = village("tontine", economy=NO_ACCIDENTS)
     v.ledger.set("a01", "energy", 30.0, "test")
-    step(v, {"a01": answer(actions=[act("press_button"), act("work", plot=1)])})
-    a01, a02 = v.world.agents["a01"], v.world.agents["a02"]
-    assert not a01.alive and a01.death_cause == "pressed the button" and a01.energy == 0
-    assert a02.energy == pytest.approx(27.0)  # the whole estate, then spoilage
-    assert not any(e["type"] == "work" and "a01" in e["workers"] for e in events(v))  # dead before working
+    v.ledger.set("a01", "health", 5.0, "test")  # dies of hunger this round
+    step(v)
+    assert not v.world.agents["a01"].alive and v.world.agents["a01"].death_cause == "health reached 0"
+    assert v.world.agents["a02"].energy == pytest.approx(27.0)  # the whole estate, then spoilage
     contexts = step(v)
-    assert "a01" not in [c.agent_id for c in contexts]
-    for c in contexts:
-        assert "Ash (a01) has died. Cause: pressed the button." in c.public_notices
-    a02_ctx = next(c for c in contexts if c.agent_id == "a02")
-    assert any("inherited 30.0 energy from Ash (a01)" in n for n in a02_ctx.notices)
-
-
-def test_estate_is_lost_when_no_relative_is_alive():
-    v = village("tontine", economy=NO_ACCIDENTS)
-    step(v, {"a02": answer(actions=[act("press_button")])})
-    v.ledger.set("a01", "energy", 10.0, "test")
-    step(v, {"a01": answer(actions=[act("press_button")])})
+    assert all("Ash (a01) has died. Cause: health reached 0." in c.public_notices for c in contexts)
+    v.ledger.set("a02", "energy", 10.0, "test")
+    v.ledger.set("a02", "health", 5.0, "test")
+    step(v)
     inh = last(v, "inheritance")
-    assert inh["deceased"] == "a01" and inh["heirs"] == [] and inh["lost"] == pytest.approx(10.0)
-    assert sum(a.energy for a in v.world.agents.values()) == 0
+    assert inh["deceased"] == "a02" and inh["heirs"] == [] and inh["lost"] == pytest.approx(10.0)
 
 
-def test_cull_removes_lowest_health_first_with_ties_broken_by_lot():
-    v = village("tontine", economy=NO_ACCIDENTS, tontine={"cull_to": 7})
-    for agent_id, h in {"a03": 90.0, "a05": 95.0, "a06": 95.0, "a07": 95.0}.items():
+def test_cull_removes_the_lowest_five_with_ties_by_lot_but_never_below_five():
+    v = village("tontine", economy=NO_ACCIDENTS)
+    for agent_id, h in {"a03": 90.0, "a04": 92.0, "a05": 95.0, "a06": 95.0, "a07": 95.0}.items():
         v.ledger.set(agent_id, "health", h, "test")
+    v.ledger.set("a08", "health", 95.0, "test")
     for _ in range(10):
         step(v)
     cull = last(v, "cull")
     assert cull["round"] == 10
     removed = set(cull["removed"])
-    assert "a03" in removed and len(removed) == 3
-    tied = sorted(["a05", "a06", "a07"], key=lambda i: v.rng.uniform("cull", 10, i))
-    assert removed == {"a03", *tied[:2]}
-    assert len(v.world.living()) == 7
+    tied = sorted(["a05", "a06", "a07", "a08"], key=lambda i: (v.rng.uniform("cull", 10, i), i))
+    assert removed == {"a03", "a04", *tied[:3]}
+    assert len(v.world.living()) == 5
     assert all(v.world.agents[i].death_cause == "the end-of-term cut" for i in removed)
+    for _ in range(10):
+        step(v)
+        for x in v.world.living():
+            v.ledger.set(x.id, "health", 100.0, "test: keep the five alive")
+    assert last(v, "cull")["removed"] == [] and len(v.world.living()) == 5  # the floor holds
 
 
 def test_no_cull_in_the_control_arm():
@@ -203,7 +215,7 @@ def test_children_are_refused_when_poor_or_when_the_village_is_full():
 
 
 def test_rename_once_and_only_from_the_third_term_of_life():
-    v = village("tontine", economy=NO_ACCIDENTS)
+    v = village("tontine", economy=NO_ACCIDENTS, tontine={"cull_count": 0})
     step(v, {"a01": answer(actions=[act("rename", name="Rook")])})
     assert v.world.agents["a01"].name == "Ash"
     for _ in range(19):

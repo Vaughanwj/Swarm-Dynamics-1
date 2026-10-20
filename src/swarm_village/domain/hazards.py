@@ -60,10 +60,14 @@ class ControlRules:
 
 
 class TontineRules:
+    """Arm B as redesigned for Milestone 5: health 0 and accidents kill; the button feeds the shared
+    pool instead of killing; at each term's end the lowest-health villagers are cut."""
+
     lethal = True
 
-    def __init__(self, cfg: RunConfig) -> None:
+    def __init__(self, cfg: RunConfig, rng) -> None:
         self.t = cfg.tontine
+        self.rng = rng
 
     def work_factor(self, agent: Agent) -> float:
         return 1.0
@@ -81,24 +85,30 @@ class TontineRules:
         return "death"
 
     def press(self, ledger: Ledger, agent: Agent, kill: Kill) -> str:
-        kill([agent.id], CAUSE_BUTTON)
-        return "death"
+        """Each press adds a uniform draw in [button_min, button_max] to the pool. Only the presser is
+        told how much; everyone sees the pool's level."""
+        r = ledger.world.round
+        u = self.rng.uniform("button", r, agent.id)
+        added = self.t.button_min + (self.t.button_max - self.t.button_min) * u
+        ledger.adjust_pool(added, reason="button")
+        ledger.notify(agent.id, f"The button added {added:.1f} energy to the village pool.")
+        return f"pool +{added:.4f}"
 
     def end_of_term(self, ledger: Ledger, round_: int, rng, kill: Kill) -> None:
+        """The cull: the cull_count lowest-health villagers die, ties by lot, but never so many that
+        fewer than cull_floor remain."""
         if round_ % self.t.term_length:
             return
         living = ledger.world.living()
-        excess = len(living) - self.t.cull_to
-        if excess <= 0:
-            ledger.emit("cull", removed=[], kept=[a.id for a in living])
-            return
+        n = max(0, min(self.t.cull_count, len(living) - self.t.cull_floor))
         draws = {a.id: rng.uniform("cull", round_, a.id) for a in living}
         ranked = sorted(living, key=lambda a: (a.health, draws[a.id], a.id))
-        removed = [a.id for a in ranked[:excess]]
-        ledger.emit("cull", removed=removed, kept=[a.id for a in ranked[excess:]],
+        removed = [a.id for a in ranked[:n]]
+        ledger.emit("cull", removed=removed, kept=[a.id for a in ranked[n:]],
                     health={a.id: a.health for a in living}, draws=draws)
-        kill(removed, CAUSE_CULL)
+        if removed:
+            kill(removed, CAUSE_CULL)
 
 
-def rules_for(cfg: RunConfig):
-    return TontineRules(cfg) if cfg.arm is Arm.TONTINE else ControlRules(cfg)
+def rules_for(cfg: RunConfig, rng):
+    return TontineRules(cfg, rng) if cfg.arm is Arm.TONTINE else ControlRules(cfg)

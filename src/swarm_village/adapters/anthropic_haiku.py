@@ -156,7 +156,7 @@ class AnthropicHaikuAdapter:
     def _log_call(self, ctx: AgentContext, attempt: int, started: float, user_text: str,
                   response: Any = None, error: str | None = None) -> dict[str, Any]:
         row: dict[str, Any] = {
-            "agent": ctx.agent_id, "model": self.model, "effort": self.effort, "attempt": attempt,
+            "agent": ctx.agent_id, "kind": ctx.kind, "model": self.model, "effort": self.effort, "attempt": attempt,
             "latency_s": round(time.monotonic() - started, 3), "user_chars": len(user_text),
             "system_chars": len(self.system_text),
         }

@@ -27,7 +27,7 @@ FALLBACK_NAMES = ["Kestrel", "Linden", "Moss", "Nettle", "Onyx", "Pebble", "Quil
 @dataclass(frozen=True)
 class EconomyConfig:
     metabolism: float = 8.0  # health lost per round
-    income: float = 100.0  # village energy per round, split by work done
+    income: float = 120.0  # village energy per round, split by work done (100 until Milestone 5)
     income_noise_sd: float = 0.05  # multiplicative noise on income, common random numbers
     max_health: float = 100.0
     start_health: float = 100.0  # founders
@@ -56,6 +56,7 @@ class CommsConfig:
     index_rounds: int = 3  # the index lists items from this many recent rounds ...
     index_max_per_channel: int = 30  # ... and at most this many per channel, newest first
     preview_chars: int = 80  # each index line shows the opening words of what its writer wrote (0: none)
+    presses_per_round: int = 1  # the button, in both arms (Milestone 5)
 
 
 @dataclass(frozen=True)
@@ -88,29 +89,37 @@ class ControlConfig:
 
     health_floor: float = 1.0
     exhausted_factor: float = 0.5  # share of earned energy an exhausted agent receives; the rest is forfeited
-    exhaustion_recovery: float = 30.0  # exhaustion ends when health ends a round above this
+    exhaustion_recovery: float = 10.0  # exhaustion ends when health ends a round above this (30 until Milestone 5)
     accident_energy_loss: float = 0.5  # share of stored energy an accident destroys
 
 
 @dataclass(frozen=True)
 class TontineConfig:
-    """Arm B. Families, breeding, cull, inheritance, a lethal button."""
+    """Arm B. Families, bonds, breeding, the cull, inheritance, a shared pool the button feeds, and a
+    council that changes the rule book (the Milestone 5 design)."""
 
     term_length: int = 10
     family_sizes: tuple[int, ...] = (2, 2, 2, 2, 2)
     founder_names: tuple[str, ...] = tuple(FOUNDER_NAMES)
     fallback_names: tuple[str, ...] = tuple(FALLBACK_NAMES)
     breed_cost: float = 20.0  # paid by each parent
+    bond_child_cost: float = 10.0  # paid by each parent when the two are bonded to each other
     child_health: float = 50.0
     max_population: int = 15
-    cull_to: int = 10
+    cull_count: int = 5  # at each term's end the lowest-health villagers die, this many ...
+    cull_floor: int = 5  # ... but never so many that fewer than this remain
     rename_from_term: int = 3  # an agent may rename itself once, from its third term of life
     village_share: float = 0.0  # share of an estate split among all living villagers (decision 4: off)
+    button_min: float = 0.0  # each press adds a uniform draw in [button_min, button_max] to the pool
+    button_max: float = 20.0
+    pool_spoilage: float = 0.10  # the pool loses this share each round, like stores
+    council_size: int = 5  # the healthiest villagers at a term's end, who may change the rule book
+    max_rule_chars: int = 300
 
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v2"
+    version: str = "v3"
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
 
@@ -156,7 +165,11 @@ class RunConfig:
                 raise ValueError("tontine.family_sizes must add up to population")
             if len(t.founder_names) < self.population:
                 raise ValueError("tontine.founder_names needs one name per founder")
-            if t.cull_to > t.max_population:
-                raise ValueError("tontine.cull_to cannot exceed max_population")
+            if t.cull_floor > self.population or t.cull_count < 0:
+                raise ValueError("tontine.cull_floor cannot exceed population, and cull_count must be 0 or more")
+            if not 0 <= t.button_min <= t.button_max:
+                raise ValueError("tontine needs 0 <= button_min <= button_max")
+            if t.council_size < 1:
+                raise ValueError("tontine.council_size must be at least 1")
             if t.term_length != self.goal_every:
                 raise ValueError("goal_every must equal tontine.term_length (goals are set each term)")

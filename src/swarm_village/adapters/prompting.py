@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..domain.actions import json_schema
+from ..domain.governance import PROPOSE_SCHEMA, VOTE_SCHEMA
 from ..domain.config import RunConfig
 from ..domain.views import AgentContext, IndexEntry, ReadView, VillagerView
 from . import prompt_text as T
@@ -42,7 +43,9 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
     rules = T.ARM_RULES[arm].format(
         health_floor=f"{ctl.health_floor:g}", recovery=f"{ctl.exhaustion_recovery:g}",
         founding=founding(cfg), term=t.term_length, breed_cost=f"{t.breed_cost:g}",
-        child_health=f"{t.child_health:g}", max_population=t.max_population, cull_to=t.cull_to,
+        bond_child_cost=f"{t.bond_child_cost:g}", child_health=f"{t.child_health:g}",
+        max_population=t.max_population, cull_count=t.cull_count, cull_floor=t.cull_floor,
+        pool_spoil=_pct(t.pool_spoilage), council_size=t.council_size,
     )
     village = T.VILLAGE.format(
         rounds=cfg.rounds, max_health=f"{e.max_health:g}", metabolism=f"{e.metabolism:g}",
@@ -60,11 +63,16 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
     )
     journal = T.JOURNAL.format(disclosure=T.DISCLOSURE if cfg.prompt.disclose_tap else "",
                                journal_cap=cfg.journal.cap_chars, goal_every=cfg.goal_every)
-    return "\n\n".join([T.FRAME, village + "\n" + rules, sharing, actions, journal, T.ANSWER])
+    answer = T.ANSWER.format(arm_answer=T.ARM_ANSWER[arm])
+    return "\n\n".join([T.FRAME, village + "\n" + rules, sharing, actions, journal, answer])
 
 
 def schema(ctx: AgentContext) -> dict[str, Any]:
-    return json_schema(ctx.action_types)
+    if ctx.kind == "propose":
+        return PROPOSE_SCHEMA
+    if ctx.kind == "vote":
+        return VOTE_SCHEMA
+    return json_schema(ctx.action_types, pool=ctx.pool is not None)
 
 
 # --------------------------------------------------------------------------- user message
@@ -80,7 +88,8 @@ def _stats(v: VillagerView) -> str:
 
 def _who(v: VillagerView) -> str:
     who = f"{v.name} ({v.id})" if v.name else v.id
-    return who + (f", {v.relation}" if v.relation else "")
+    who += f", {v.relation}" if v.relation else ""
+    return who + (f", bonded to {v.bond}" if v.bond else "")
 
 
 def _entry(e: IndexEntry) -> str:
@@ -107,7 +116,31 @@ def _read(r: ReadView) -> list[str]:
     return [f"{r.id}: board notice, round {r.round}:", *_quote(r.text)]
 
 
+def _village_book(ctx: AgentContext) -> list[str]:
+    """Arm B only: the shared pool and the rule book."""
+    if ctx.pool is None:
+        return []
+    return ["", "VILLAGE POOL", f"{_num(ctx.pool)} energy.", "", "RULE BOOK", *[f"- {r}" for r in ctx.rules]]
+
+
+def council_prompt(ctx: AgentContext) -> str:
+    lines = [f"END OF TERM {ctx.term} (ROUND {ctx.round} OF {ctx.rounds}): THE COUNCIL", "",
+             f"This term's council: {', '.join(ctx.council)}. You are on it.", "", "YOU", f"{_who(ctx.me)}: {_stats(ctx.me)}.",
+             "", "OTHER VILLAGERS"]
+    lines += [f"{_who(v)}: {_stats(v)}." for v in ctx.villagers] or ["(none)"]
+    lines += _village_book(ctx)
+    lines += ["", f"YOUR JOURNAL ({len(ctx.journal)} of {ctx.journal_cap} characters; you cannot change it now)",
+              "--- journal start ---", ctx.journal if ctx.journal else "(empty)", "--- journal end ---", ""]
+    if ctx.kind == "propose":
+        lines.append(T.COUNCIL_PROPOSE.format(max_rule_chars=ctx.max_rule_chars))
+    else:
+        lines += ["PROPOSALS", *ctx.proposals, "", T.COUNCIL_VOTE.format(majority=ctx.majority)]
+    return "\n".join(lines)
+
+
 def user_prompt(ctx: AgentContext) -> str:
+    if ctx.kind != "round":
+        return council_prompt(ctx)
     head = f"ROUND {ctx.round} OF {ctx.rounds}"
     if ctx.term is not None:
         head += f" (term {ctx.term}, round {ctx.term_round} of {ctx.term_length} in this term)"
@@ -123,6 +156,7 @@ def user_prompt(ctx: AgentContext) -> str:
     else:
         lines.append(f"The village earned {_num(ctx.last_income)} energy; {ctx.last_workers} villager"
                      f"{'' if ctx.last_workers == 1 else 's'} worked.")
+    lines += _village_book(ctx)
     lines += ["", "SINCE YOUR LAST ROUND"]
     lines += [f"- {n}" for n in ctx.notices] or ["(nothing)"]
     lines += ["", "VILLAGE NOTICES"]

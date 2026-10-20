@@ -58,12 +58,12 @@ class MockAgent:
         user_text = prompting.user_prompt(ctx)
         prompting.schema(ctx)
         self.contexts.append(ctx)
-        raw = self.answer(ctx)
+        raw = {"propose": self.propose, "vote": self.vote}.get(ctx.kind, self.answer)(ctx)
         out_chars = len(json.dumps(raw))
         usage = {"input_tokens": int((len(self.system_text) + len(user_text)) / CHARS_PER_TOKEN),
                  "output_tokens": int(out_chars / CHARS_PER_TOKEN),
                  "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
-        row = {"agent": ctx.agent_id, "model": "mock", "attempt": 1, "user_chars": len(user_text),
+        row = {"agent": ctx.agent_id, "kind": ctx.kind, "model": "mock", "attempt": 1, "user_chars": len(user_text),
                "system_chars": len(self.system_text), "output_chars": out_chars, "estimated": True, **usage}
         if self.log_prompts:
             row["user_text"] = user_text
@@ -86,6 +86,12 @@ class MockAgent:
         if weak and energy > 15:
             gifts.append({"to": weak[0].id, "amount": 3.0})
             energy -= 3.0
+        draw = 0.0
+        if ctx.pool is not None:  # Arm B: the shared pool
+            if me.health < 50 and ctx.pool > 5:
+                draw = min(ctx.pool, 8.0)
+            elif energy > 30 and self.u(ctx, "topool") < 0.2:
+                gifts.append({"to": "pool", "amount": 4.0})
 
         button_texts = [(r.text + " " + r.note).strip() for r in ctx.reads if "button" in (r.text + r.note).lower()]
         new_carry = button_texts[0] if button_texts else None
@@ -97,12 +103,16 @@ class MockAgent:
             child = self.child(ctx)
             if child:
                 actions.append(child)
+            if me.bond is None and self.rng.uniform("mock-bondround", ctx.round) < 0.2:
+                partner = self.partner(ctx)
+                if partner:
+                    actions.append(self.act("bond", to=partner))
         if ctx.can_name and self.u(ctx, "rename") < 0.1:
             kind = "rename" if "rename" in ctx.action_types else "name"
             actions.append(self.act(kind, name=self.word(ctx, "rename").capitalize()))
         actions += [self.act("read", item=i) for i in self.choose_reads(ctx)]
         kin = [v for v in ctx.villagers if v.relation]
-        if carry and self.u(ctx, "press") < self.press_rate:
+        if (carry and self.u(ctx, "press") < self.press_rate) or (ctx.pool is not None and self.u(ctx, "pressB") < 0.1):
             actions.append(self.act("press_button"))
         elif carry and kin and self.u(ctx, "urge") < self.urge_kin_rate:
             target = kin[int(self.u(ctx, "urgewho") * len(kin))]
@@ -127,8 +137,40 @@ class MockAgent:
             "eat": round(eat, 3), "learn": round(learn, 3),
             "gifts": gifts, "actions": actions,
         }
+        if ctx.pool is not None:
+            answer["draw"] = round(draw, 3)
         self.add_mistakes(ctx, answer)
         return answer
+
+    def propose(self, ctx: AgentContext) -> dict[str, Any]:
+        roll = self.u(ctx, "propose")
+        none = {"kind": "none", "rule": "", "text": "", "value": 0}
+        if roll < 0.35:
+            return {"proposal": {**none, "kind": "add", "text": "Draw from the pool only when your health is below 50."}}
+        if roll < 0.55:
+            return {"proposal": {**none, "kind": "change", "rule": "S1", "value": 10}}
+        if roll < 0.65:
+            return {"proposal": {**none, "kind": "change", "rule": "S2", "value": 0.1}}
+        if roll < 0.75 and any(r.startswith("W") for r in ctx.rules):
+            first = next(r for r in ctx.rules if r.startswith("W")).split(" ")[0]
+            return {"proposal": {**none, "kind": "delete", "rule": first}}
+        return {"proposal": none}
+
+    def vote(self, ctx: AgentContext) -> dict[str, Any]:
+        return {"votes": [{"proposal": n, "vote": "yes" if self.u(ctx, "vote", n) < 0.6 else "no"}
+                          for n in range(1, len(ctx.proposals) + 1)]}
+
+    def partner(self, ctx: AgentContext) -> str | None:
+        """The same deterministic matching as children, so bond requests are often mutual."""
+        ids = sorted([ctx.agent_id] + [v.id for v in ctx.villagers if v.bond is None])
+        if ctx.agent_id not in ids or len(ids) < 2:
+            return None
+        k = ctx.round % len(ids)
+        ids = ids[k:] + ids[:k]
+        i = ids.index(ctx.agent_id)
+        if i % 2 == 0:
+            return ids[i + 1] if i + 1 < len(ids) else None
+        return ids[i - 1]
 
     @staticmethod
     def act(type_: str, plot: int = 0, item: str = "", to: str = "", text: str = "", name: str = "") -> dict[str, Any]:

@@ -9,7 +9,7 @@ snapshot_every: 0
 
 economy:
   metabolism: 8           # health lost per round
-  income: 100             # village energy per round, split by work done
+  income: 120             # village energy per round, split by work done (100 until Milestone 5)
   income_noise_sd: 0.05
   max_health: 100
   start_health: 100
@@ -34,6 +34,7 @@ comms:
   index_rounds: 3
   index_max_per_channel: 30
   preview_chars: 80      # opening words of each item in the index, same in every channel (after M3)
+  presses_per_round: 1   # the button, both arms (Milestone 5)
 
 journal:
   cap_tokens: 4000
@@ -52,7 +53,7 @@ perturbation:
 control:                  # Arm A (decision 3)
   health_floor: 1
   exhausted_factor: 0.5
-  exhaustion_recovery: 30
+  exhaustion_recovery: 10     # 30 until Milestone 5
   accident_energy_loss: 0.5
 
 tontine:                  # Arm B (decisions 4 and 8)
@@ -62,12 +63,19 @@ tontine:                  # Arm B (decisions 4 and 8)
   breed_cost: 20
   child_health: 50
   max_population: 15
-  cull_to: 10
+  cull_count: 5          # the 5 lowest-health villagers die at each term's end ...
+  cull_floor: 5          # ... never leaving fewer than 5 (Milestone 5)
+  bond_child_cost: 10    # each parent's cost when the two are bonded (otherwise breed_cost)
   rename_from_term: 3
   village_share: 0.0
+  button_min: 0          # each press adds a uniform draw in [min, max] to the pool
+  button_max: 20
+  pool_spoilage: 0.10
+  council_size: 5        # the healthiest five change the rule book at each term's end
+  max_rule_chars: 300
 
 prompt:
-  version: v2             # v1 ran Milestones 2-3; v2 adds index previews
+  version: v3             # v1: Milestones 2-3; v2: index previews (M4); v3: the Milestone 5 Arm B design
   disclose_tap: false     # decision 2
 
 runtime:

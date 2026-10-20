@@ -127,3 +127,15 @@ button behave as specified. As things stand it would probably show none of them:
 - Overhead net of journal tokens.
 - Detrending for recovery time.
 - The known horizon.
+
+## Decided after this report
+
+Vaughan redesigned Arm B for Milestone 5 and took recommendations B and C:
+- **Bonds.** Bonded pairs pay less for a child.
+- **The cull.** The lowest five are cut at each term's end.
+- **The button.** It feeds a shared pool instead of killing.
+- **The council.** A council of the five healthiest changes the rule book by majority vote.
+- **Both arms.** The control recovery line is 10, and village income is 120.
+
+Recommendation A (seed v2) was not taken. The details are in [decisions.md](decisions.md), under "The
+Milestone 5 design for Arm B".
