@@ -100,7 +100,8 @@ child and two others. No estate passed by will. Sonnet wrote none.
 - **To compare referendums and families,** Sonnet's villages need to run on after a save. Setting
   `commons.rounds_after_saved` to 0 lets a run continue to round 100. That is then a full 100-round run at
   about $17 to $23 each, by run 10's token counts. Sonnet's shorter answers suggest less: these runs averaged
-  about $0.09 a round, or $9 per 100 rounds.
+  about $0.09 a round, or $9 per 100 rounds. Later rounds cost more than early ones, though, because
+  memories and the rule book grow, so a full run would land somewhere between the two figures.
 - **A design question this raised: should a tap show progress?** Haiku's councils demanded proof of "energy
   gained" from tapping, which a tap never gives before the world is saved. A tapper is told the total effort,
   but not the target or that a tap yields nothing until then.
