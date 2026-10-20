@@ -744,3 +744,18 @@ run 11's design, unchanged, on seeds 704 to 708, both arms (`configs/run11-seeds
 - **Spend.** Each run is capped at $2, and the batch stops starting runs at $12. Expected cost is about $9.
 - **Judging red tape.** Keywords (verify, proof, confirm, evidence) only flag a rule. A rule counts as red
   tape when it makes acting on a find wait for a proof the world cannot give, and tapping then stops.
+
+## Run 11 family-question-off batch (Vaughan, 2026-10-20)
+
+In run 11's replication, every Arm B village bonded and had children, but each villager was asked every
+term whether it wanted to. Finding #5 ("nobody makes the first move") came from runs 7 and 8, which had
+no such question. Vaughan asked for the test (`configs/run11-nofamily.yaml`):
+
+- **The only change.** Run 11's Arm B on seeds 704 to 708 with `tontine.family_ask: false`. Same seeds,
+  so the same random draws: each village pairs with its family-question twin.
+- **Still available.** Villagers can still bond or have a child with the bond and child actions, and
+  requests still stand until answered (`standing_bonds`). The system prompt differs from run 11's by one
+  line, the format of the family answer.
+- **What would support #5.** Far fewer bonds and children than the twins (36 bonds and 12 children),
+  with families starting only once someone else asks.
+- **Spend.** Each run is capped at $2, and the batch stops starting runs at $6. Expected cost is about $4.50.

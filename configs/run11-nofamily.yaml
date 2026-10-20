@@ -1,0 +1,13 @@
+# Run 11 family-question-off batch (Vaughan, 2026-10-20): run11-seeds.yaml's Arm B, seeds 704-708, with
+# one change: no family question. Villagers are no longer asked each term whether to bond or have a
+# child; they can still do either with the bond and child actions, and bond and child requests still
+# stand until answered. Everything else, including the seeds and so the random draws, matches
+# run11-seeds, so each village pairs with its family-question twin.
+# Tests #5 ("nobody makes the first move"): in runs 7 and 8, without the question, no families formed;
+# in run 11 with it, every Arm B village bonded and had children. Each run is capped at $2 (run 11's
+# Arm B cost $0.72-1.14 a run). See docs/decisions.md and docs/run-11.md.
+extends: run11-seeds.yaml
+name: run11-nofamily
+arms: [tontine]
+tontine:
+  family_ask: false
