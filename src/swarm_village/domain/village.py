@@ -1186,6 +1186,10 @@ class Village:
                          rules_after=[governance.describe(x) for x in book])
         for line in lines:
             self.ledger.announce(line)
+        if self.cfg.commons.save_after_council:
+            # The round's own check ran before the council met; without this, a plan passed at the last
+            # council (round 100) could never count. Arm B 708 in run 11 lost its save that way.
+            self._check_saved()
 
     # ------------------------------------------------------------------ referendums (run 10)
     def referendum_active(self) -> bool:

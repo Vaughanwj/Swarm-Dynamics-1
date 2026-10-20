@@ -246,6 +246,38 @@ def test_a_saved_world_pauses_the_run_a_few_rounds_later_and_the_tap_rebuilds_it
     assert final["saved_round"] == 11 and rebuild(ev, arm).to_dict() == final
 
 
+@pytest.mark.parametrize("arm", ["control", "tontine"])
+def test_with_save_after_council_a_plan_counts_in_the_round_its_council_passes_it(tmp_path, arm):
+    commons = {**COMMONS, "rounds_after_saved": 3, "save_after_council": True}
+    cfg = config(arm, 5, rounds=100, economy={**NO_ACCIDENTS, "start_energy": 200}, commons=commons,
+                 tontine={**TONTINE, "cull_mode": "scarcity"}, prompt={"show_horizon": False})
+    where = village(arm, 5, commons=COMMONS, tontine=TONTINE).world.store_direction
+    d = tmp_path / arm
+    RunOrchestrator(cfg, d, clock=FixedClock(), runtime=Planners(where)).run()
+    ev = read_events(d / "events.jsonl")
+    saved = next(e for e in ev if e["type"] == "world_saved")
+    council = next(e for e in ev if e["type"] == "council_session")
+    assert saved["round"] == council["round"] == 10 and saved["t"] > council["t"]  # straight after the council
+    assert max(e["round"] for e in ev if e["type"] == "round_end") == 13
+    final = json.loads((d / "final_state.json").read_text(encoding="utf-8"))
+    assert final["saved_round"] == 10 and rebuild(ev, arm).to_dict() == final
+
+
+def test_a_council_plan_saves_the_world_in_its_own_round_when_the_effort_is_there():
+    v = v7(tap_target=40, min_tappers=4, save_after_council=True)
+    where = v.world.store_direction
+    for i in v.world.agents:
+        v.ledger.set(i, "energy", 50.0, "test")
+    step(v, {i: answer(actions=[act("tap")]) for i in ("a01", "a02", "a03", "a04")})
+    assert v.world.saved_round is None  # 40 effort from 4 tappers, but no plan yet
+    from swarm_village.domain.governance import Proposal
+    members = v.council()
+    yes = {m: Reply(m, raw={"votes": [{"proposal": 1, "vote": "yes"}]}) for m in members}
+    v.settle_votes(members, [Proposal(kind="add", by=members[0], text=f"Plan: tap the store to the {where}.")], yes)
+    assert v.world.saved_round == v.world.round  # the same round, not the next
+    assert v.world.store_direction in of(v, "world_saved")[0]["plan_text"]
+
+
 # --------------------------------------------------------------------------- run 8: standing reveals
 
 STANDING = {"standing_reveals": True, "reveals_version": "v2"}

@@ -759,3 +759,24 @@ no such question. Vaughan asked for the test (`configs/run11-nofamily.yaml`):
 - **What would support #5.** Far fewer bonds and children than the twins (36 bonds and 12 children),
   with families starting only once someone else asks.
 - **Spend.** Each run is capped at $2, and the batch stops starting runs at $6. Expected cost is about $4.50.
+
+## The save is checked straight after each council too (Vaughan, 2026-10-20)
+
+In run 11's replication, Arm B 708 had 750 effort from seven tappers, and its round-100 council passed a
+rule naming the store's direction. The village was not saved. Each round runs the save check and then
+the council, so a council's rules were only checked at the end of the next round, and after round 100
+there was none. The lag was an accident of the code's ordering, not a chosen rule, and villagers were
+never told of it. Vaughan agreed to the fix (`commons.save_after_council`):
+
+- **What changes.** The save check also runs straight after each council. A plan the council passes
+  counts that round, if the effort and tappers are already there. Otherwise the end-of-round check
+  catches the save as before.
+- **What stays the same.** The prompt is unchanged: villagers were never told of the lag, and telling them
+  now would read as advice to hurry. The save conditions are unchanged.
+- **Off by default, so earlier configs still reproduce their runs.** New run configs turn it on.
+- **Re-scoring runs 9 to 11 from their logs.** Only two runs change, both in run 11's replication:
+  - Arm B 704 is saved in round 80 instead of 81;
+  - Arm B 708 is saved in round 100 instead of never.
+
+  Every other save is unchanged: run 9 control 701, run 10 control 703, run 11 control 704 and both Sonnet
+  pilot saves. A re-scored save is not a rerun: Arm B 708's five rounds after the save never happened.
