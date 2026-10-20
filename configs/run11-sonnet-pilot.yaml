@@ -1,0 +1,14 @@
+# Run 11 model pilot (Vaughan, 2026-10-20): run 11's design on Claude Sonnet 5.5, seed 701, both arms,
+# to see whether the Haiku findings hold in another model. Effort is set to medium, as for Haiku
+# (Sonnet 5.5's own default is high), so the model is the only difference. Compared with
+# run11-haiku-pilot.yaml on the same seed.
+# Cost: run 10's measured tokens priced at Sonnet's rates come to about $17-23 a run; each run is
+# capped at $28, and with the Haiku pair (capped at $2 each) the pilot cannot pass $60.
+extends: run11-world.yaml
+name: run11-sonnet-pilot
+seeds: [701]
+runtime:
+  model: claude-sonnet-5-5
+  effort: medium
+  concurrency: 10
+  budget_usd: 28.00

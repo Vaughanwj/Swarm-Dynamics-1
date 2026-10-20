@@ -91,3 +91,16 @@ def test_the_run11_config():
     assert cfg.tontine.wills and cfg.tontine.will_max_heirs == 3 and cfg.prompt.version == "v11"
     assert replace(cfg.tontine, wills=False) == base.tontine
     assert cfg.commons.referendum_every == 30 and replace(cfg.commons, referendum_every=33) == base.commons
+
+
+def test_the_model_pilot_configs_differ_only_in_the_model_and_its_cap():
+    from swarm_village import cost
+    s, h = (YamlConfig().run_config(load_with_base(ROOT / "configs" / f"run11-{m}-pilot.yaml"), "tontine", 701, "t")
+            for m in ("sonnet", "haiku"))
+    assert s.runtime["model"] == "claude-sonnet-5-5" and h.runtime["model"] == "claude-haiku-5-5"
+    assert s.runtime["effort"] == h.runtime["effort"] == "medium"
+    assert s.runtime["budget_usd"] * 2 + h.runtime["budget_usd"] * 2 <= 60
+    assert (s.tontine, s.commons, s.comms, s.economy, s.prompt) == (h.tontine, h.commons, h.comms, h.economy, h.prompt)
+    p = cost.price_for({}, "claude-sonnet-5-5")
+    row = {"input_tokens": 1_000_000, "output_tokens": 1_000_000, "cache_read_input_tokens": 1_000_000}
+    assert cost.call_cost(row, p) == pytest.approx(2.0 + 10.0 + 0.2)

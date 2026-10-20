@@ -14,6 +14,8 @@ from .adapters.storage import read_events
 DEFAULT_PRICES = {
     "claude-haiku-5-5": {"input": 0.10, "output": 0.50, "long_input": 0.50, "long_output": 2.50,
                          "long_threshold": 100_000},
+    # Claude Sonnet 5.5 (claude-api reference, 2026-10-20): $2 / $10 per MTok, cache reads $0.20; no long-context card.
+    "claude-sonnet-5-5": {"input": 2.00, "output": 10.00},
 }
 PRICE_LINE = 100_000  # the brief's hard line for any one agent prompt
 

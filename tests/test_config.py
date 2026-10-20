@@ -17,7 +17,9 @@ def test_every_config_loads_for_its_arms(path):
             cfg = YamlConfig().run_config(doc, arm, seed, "t")
             assert cfg.journal.cap_chars == 20000 and cfg.comms.read_memory >= 1
             if doc.get("runtime", {}).get("kind") == "anthropic":
-                assert doc["runtime"]["model"] == "claude-haiku-5-5" and doc["runtime"]["effort"] == "medium"
+                # Haiku 5.5 for the studies; Sonnet 5.5 only for the run 11 model pilot. Each has a price.
+                assert doc["runtime"]["model"] in ("claude-haiku-5-5", "claude-sonnet-5-5")
+                assert doc["runtime"]["model"] in doc["pricing"] and doc["runtime"]["effort"] == "medium"
                 assert "temperature" not in doc["runtime"] and doc["runtime"]["budget_usd"] > 0
 
 

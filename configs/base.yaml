@@ -85,5 +85,6 @@ runtime:
 
 pricing:
   claude-haiku-5-5: {input: 0.10, output: 0.50, long_input: 0.50, long_output: 2.50, long_threshold: 100000}
+  claude-sonnet-5-5: {input: 2.00, output: 10.00}   # cache reads 0.1x ($0.20), writes 1.25x
 
 output_dir: runs

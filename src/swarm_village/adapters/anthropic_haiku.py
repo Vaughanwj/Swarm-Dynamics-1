@@ -1,4 +1,6 @@
-"""AgentRuntimePort backed by Claude Haiku 5.5 on the standard Messages API (no batch).
+"""AgentRuntimePort backed by Claude on the standard Messages API (no batch): Haiku 5.5 by default, and
+Sonnet 5.5 for the run 11 model pilot. Sonnet 5.5 needs nothing different here: it rejects
+`thinking: disabled` and forced tool choice, and this adapter sends neither.
 
 API details verified against the claude-api reference on 2026-10-19:
 - Effort is `output_config.effort` (low, medium, high, xhigh, max). Haiku 5.5's default is
@@ -89,7 +91,7 @@ class AnthropicHaikuAdapter:
         except Exception:  # pragma: no cover - only when the SDK is missing
             sdk = None
         return {"runtime": "anthropic", "model": self.model, "effort": self.effort, "max_tokens": self.max_tokens,
-                "temperature": "not sent: Claude Haiku 5.5 returns 400 on non-default sampling parameters",
+                "temperature": "not sent: Claude Haiku 5.5 and Sonnet 5.5 return 400 on non-default sampling parameters",
                 "thinking": "adaptive (model default, not sent)", "batch": False, "sdk_version": sdk,
                 "prompt_caching": "system block, ephemeral", "budget_usd": self.budget_usd}
 

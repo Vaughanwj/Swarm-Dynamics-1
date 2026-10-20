@@ -1,0 +1,8 @@
+# Run 11 model pilot, Haiku side (Vaughan, 2026-10-20): run 11's design on Claude Haiku 5.5, seed 701,
+# both arms, for comparison with run11-sonnet-pilot.yaml. Each run is capped at $2 (run 10's cost
+# $0.84-1.14 a run).
+extends: run11-world.yaml
+name: run11-haiku-pilot
+seeds: [701]
+runtime:
+  budget_usd: 2.00
