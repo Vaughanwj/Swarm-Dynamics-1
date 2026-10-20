@@ -148,6 +148,8 @@ class CommonsConfig:
 
     enabled: bool = False
     public_reveals: tuple[int, ...] = ()  # the rounds at which the reveals (domain/world_info.py) are announced, in order
+    standing_reveals: bool = False  # run 8: what the village has learned stands in every prompt, kept current
+    reveals_version: str = "v1"  # domain/world_info.py: v2 says the world ends when the rounds run out
     explore: bool = False  # the explore and tap actions, and the larger store
     explore_cost: float = 5.0
     explore_accident_factor: float = 2.0  # an explorer's accident chance is multiplied by this, that round
@@ -164,7 +166,7 @@ class CommonsConfig:
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v6"
+    version: str = "v7"
     show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
@@ -235,6 +237,8 @@ class RunConfig:
                 raise ValueError("commons.public_reveals must be distinct rounds from 1, in order")
             if len(m.public_reveals) > 6:
                 raise ValueError("commons.public_reveals has six reveals to schedule at most")
+            if m.reveals_version not in ("v1", "v2"):
+                raise ValueError("commons.reveals_version must be v1 or v2 (domain/world_info.py)")
             if m.explore and not (0 <= m.find_base <= m.find_max <= 1 and m.min_tappers >= 1 and m.tap_target > 0):
                 raise ValueError("commons: need 0 <= find_base <= find_max <= 1, min_tappers >= 1 and tap_target > 0")
         elif self.commons.public_reveals or self.commons.explore:

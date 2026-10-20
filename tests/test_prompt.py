@@ -12,11 +12,12 @@ from swarm_village.adapters import prompt_text as T
 from swarm_village.adapters import prompting
 from swarm_village.domain.config import CHANNELS
 from swarm_village.domain.seed import ORDERS, ROTATION, SEED_TEXTS, channel_order, placements
+from swarm_village.domain.world_info import REVEALS, SAVED
 
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "77052c8c7933425e6e8d893f5d5795a3f26626c674fa7ca09f5431de28b34a39"  # v6
+FROZEN_PROMPT_SHA256 = "b2549af68a7da50e615402183ea006203c87d115a3d29a862d5bf3e7fad1a761"  # v7
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -33,7 +34,7 @@ def frozen_text_hash() -> str:
              json.dumps(T.CHILD_START, sort_keys=True), json.dumps(T.CULL_RULES, sort_keys=True),
              json.dumps(T.HEIRS, sort_keys=True), json.dumps(T.ESTATE_END, sort_keys=True), T.BUTTON_RULE,
              T.CHILD_ANSWERS, T.READ_REWARD_SCHEDULE, T.READ_LINE, T.READ_LINE_FREE, T.READ_REWARD_FIXED,
-             T.INFO_TRADE, T.TRADE_ANSWER]
+             T.INFO_TRADE, T.TRADE_ANSWER, T.LEARNED_TITLE, T.LEARNED_NEW, json.dumps(REVEALS, sort_keys=True), SAVED]
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()
 
 
@@ -128,7 +129,7 @@ def test_the_button_is_described_the_same_way_in_both_arms():
 def test_the_index_sentence_matches_whether_previews_are_on():
     cfg = config()
     order = channel_order(cfg)
-    assert cfg.comms.preview_chars == 80 and T.VERSION == "v6" and cfg.prompt.version == "v6"
+    assert cfg.comms.preview_chars == 80 and T.VERSION == "v7" and cfg.prompt.version == "v7"
     assert T.INDEX_PREVIEW in prompting.system_prompt(cfg, order)
     off = replace(cfg, comms=replace(cfg.comms, preview_chars=0))
     assert T.INDEX_PLAIN in prompting.system_prompt(off, order) and T.INDEX_PREVIEW not in prompting.system_prompt(off, order)

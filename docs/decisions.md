@@ -560,3 +560,28 @@ press adds energy to the pool.
 - **A plan may name other directions.** The approved check is literal: "plan" plus the right direction.
   A scattershot plan naming all six would pass. The `world_saved` event lists every direction the plan
   named, so this can be judged afterwards; tighten it if it happens.
+
+## Run 8: standing reveals, and a world that ends (Vaughan, 2026-10-20)
+
+In run 7 nobody explored or tapped in either arm ([run-7.md](run-7.md)). Each reveal was shown once and
+forgotten, and nothing in them named a threat: the store outlasted the village, as the third reveal
+said. Vaughan settled the two design questions:
+
+1. **The world ends at the deadline.** The second reveal now reads "The world will end in N rounds."
+   (`commons.reveals_version: v2`, domain/world_info.py). The store stays at 16,000, so every reveal
+   stays true, and the third ("The world can last longer than that") now reads as the end not being
+   fixed. Saving the world lifts it: from then on the second line reads "The world has been saved. It
+   will not end." The run still pauses 5 rounds after a save.
+2. **The reveals stay public, and now stand every round** (`commons.standing_reveals`). From its round,
+   each reveal appears in every villager's prompt under "What the village has learned", after the rule
+   book, identical for everyone, with the store's level and the rounds left kept current. A reveal is
+   marked "(new this round)" in the round it arrives. Council prompts show it too, since the council
+   writes the plan. Run 7's one-time notices are dropped. Private news still comes from exploring: a
+   finder alone learns the direction.
+
+**Prompt v7.** The section's title and marker are new frozen text, and the reveal texts are now pinned by
+the prompt hash. Nothing else in the prompt changes.
+
+**Same seed as run 7 (701).** Plots, the store's direction and every keyed draw match run 7, so the
+reveals are the only design change between the two runs. Configured in `configs/run8-world.yaml`, which
+extends run 7's.

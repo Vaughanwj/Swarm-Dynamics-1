@@ -1,0 +1,16 @@
+# Run 8 (Vaughan, 2026-10-20): run 7 with one change, how the village learns about the world.
+# - Standing reveals: from its round, each reveal stands in every villager's prompt under "What the
+#   village has learned", identical for everyone, with values kept current. Run 7 announced each once,
+#   and no villager acted on them.
+# - The second reveal names the stakes: "The world will end in N rounds." The store stays at 16,000;
+#   saving the world lifts the end.
+# Same seed as run 7, so the plots, the store's direction and every keyed draw match. Prompt v7.
+# See docs/decisions.md and docs/run-7.md.
+extends: run7-world.yaml
+name: run8-world
+seeds: [701]
+prompt:
+  version: v7
+commons:
+  standing_reveals: true
+  reveals_version: v2

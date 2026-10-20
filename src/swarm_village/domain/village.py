@@ -19,7 +19,7 @@ from .families import CLOSE_KIN, heirs, kinship, relation, split_estate, term_of
 from .hazards import death_notice, rules_for
 from .model import VILLAGE, Agent, Item, Ledger, World, preview
 from .seed import SEED_TEXTS, channel_order, placements
-from .world_info import REVEALS
+from .world_info import REVEALS, learned
 from .views import AgentContext, IndexEntry, ReadView, VillagerView
 
 EPS = 1e-9
@@ -95,12 +95,22 @@ class Village:
         self.ledger.emit("order", order=self.order)
 
     def _reveal_publicly(self, n: int) -> None:
-        """Run 7: the n-th reveal, announced to every villager at the start of a round, with the values
-        as they stand (rounds remaining counts this round)."""
-        w = self.world
-        text = REVEALS["v1"][n].format(energy=w.energy or 0.0, rounds_left=self.cfg.rounds - w.round + 1)
-        self.ledger.announce(f"The village has learned: {text}")
-        self.ledger.emit("reveal_public", n=n + 1, text=text)
+        """The n-th reveal, to every villager at the start of a round, with the values as they stand
+        (rounds remaining counts this round). Run 7 announced it once; from run 8 it joins the standing
+        list of what the village has learned (see learned_now)."""
+        w, m = self.world, self.cfg.commons
+        text = REVEALS[m.reveals_version][n].format(energy=w.energy or 0.0, rounds_left=self.cfg.rounds - w.round + 1)
+        if not m.standing_reveals:
+            self.ledger.announce(f"The village has learned: {text}")
+        self.ledger.emit("reveal_public", n=n + 1, text=text, standing=m.standing_reveals)
+
+    def learned_now(self) -> list[tuple[str, bool]]:
+        """Run 8: every reveal so far, as it reads this round, and whether it is new this round."""
+        m, w = self.cfg.commons, self.world
+        if not m.standing_reveals:
+            return []
+        return learned(m.reveals_version, m.public_reveals, w.round, self.cfg.rounds, w.energy or 0.0,
+                       saved=w.saved_round is not None)
 
     def last_round(self) -> int:
         """The run's last round: `rounds`, or a few rounds after the world is saved, where it pauses."""
@@ -238,6 +248,7 @@ class Village:
                              "been answered yet." for q in w.requests if q["from"] == agent_id), None),
             answers=self.tontine and c.tontine.standing_requests,
             trade=c.comms.info_trade,
+            learned=self.learned_now(),
             offers_to_me=[f"{o['id']}: {self._label(o['from'])} offers {o['item']} "
                           f"(\"{preview(w.items[o['item']].written(), c.comms.preview_chars) or '...'}\") for "
                           f"{o['price']:g} energy." for o in w.offers if o["to"] == agent_id and o["round"] == r - 1],
@@ -624,7 +635,8 @@ class Village:
         self.ledger.emit("world_saved", effort=w.effort, tappers=list(w.tappers), plan=plan["id"], plan_text=plan["text"],
                          plan_directions=store.directions_named(plan["text"]), energy=w.energy)
         self.ledger.announce(f"The village has tapped a vast store of energy, following its plan ({plan['id']}). The world "
-                             f"now holds {w.energy:.0f} energy. The world is saved.")
+                             f"now holds {w.energy:.0f} energy. The world is saved"
+                             + (" and will not end." if self.cfg.commons.reveals_version != "v1" else "."))
 
     # ------------------------------------------------------------------ deaths and estates
     def _heirs(self, agent_id: str, partner: str | None) -> list[str]:
@@ -954,6 +966,7 @@ class Village:
             rules=[governance.describe(x) for x in w.rules], council=[self._label(m) for m in members],
             proposals=[f"{n}. by {self._label(p.by)}: {p.describe(w.rules)}" for n, p in enumerate(proposals, start=1)],
             max_rule_chars=c.tontine.max_rule_chars, majority=governance.majority(len(members)),
+            learned=self.learned_now(),
         )
 
     def collect_proposals(self, members: list[str], replies: dict[str, Any]) -> list:

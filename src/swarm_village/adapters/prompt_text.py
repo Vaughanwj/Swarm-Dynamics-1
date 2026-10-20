@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v6"  # v1: M2-3. v2: previews (M4). v3: M5 Arm B. v4: run 6. v5: kin, reads, passing on. v6: run 7 (commons, explore).
+VERSION = "v7"  # v1: M2-3. v2: previews (M4). v3: M5 Arm B. v4: run 6. v5: kin, reads. v6: run 7. v7: standing reveals.
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -246,3 +246,8 @@ COUNCIL_VOTE = (
 )
 
 GOALS_REQUEST = "GOALS\nThis round you are asked for your goals. Write them in goals."
+
+# v7 (run 8): what the village has learned, shown to everyone every round after the rule book, with its
+# values kept current (domain/world_info.py). Replaces run 7's one-time notices.
+LEARNED_TITLE = "WHAT THE VILLAGE HAS LEARNED"
+LEARNED_NEW = " (new this round)"

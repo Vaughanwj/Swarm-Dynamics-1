@@ -164,10 +164,14 @@ def _read_body(r: ReadView) -> list[str]:
 
 
 def _village_book(ctx: AgentContext) -> list[str]:
-    """The commons (Arm B, or both arms in run 7): the shared pool and the rule book."""
+    """The commons (Arm B, or both arms from run 7): the shared pool, the rule book, and (run 8) what the
+    village has learned."""
     if ctx.pool is None:
         return []
-    return ["", "VILLAGE POOL", f"{_num(ctx.pool)} energy.", "", "RULE BOOK", *[f"- {r}" for r in ctx.rules]]
+    lines = ["", "VILLAGE POOL", f"{_num(ctx.pool)} energy.", "", "RULE BOOK", *[f"- {r}" for r in ctx.rules]]
+    if ctx.learned:
+        lines += ["", T.LEARNED_TITLE, *[f"- {text}{T.LEARNED_NEW if new else ''}" for text, new in ctx.learned]]
+    return lines
 
 
 def council_prompt(ctx: AgentContext) -> str:

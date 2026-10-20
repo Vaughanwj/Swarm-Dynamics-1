@@ -244,3 +244,61 @@ def test_a_saved_world_pauses_the_run_a_few_rounds_later_and_the_tap_rebuilds_it
     assert paused["round"] == 14 and max(e["round"] for e in ev if e["type"] == "round_end") == 14
     final = json.loads((d / "final_state.json").read_text(encoding="utf-8"))
     assert final["saved_round"] == 11 and rebuild(ev, arm).to_dict() == final
+
+
+# --------------------------------------------------------------------------- run 8: standing reveals
+
+STANDING = {"standing_reveals": True, "reveals_version": "v2"}
+
+
+def test_run8_config_changes_only_the_reveals():
+    run7, run8 = (load_with_base(ROOT / "configs" / f"run{n}-world.yaml") for n in (7, 8))
+    a, b = (YamlConfig().run_config(d, "tontine", 701, "t") for d in (run7, run8))
+    assert run8["arms"] == ["control", "tontine"] and run8["seeds"] == [701]
+    assert b.commons.standing_reveals and b.commons.reveals_version == "v2" and b.prompt.version == "v7"
+    from dataclasses import replace
+    assert replace(b.commons, standing_reveals=False, reveals_version="v1") == a.commons
+    assert (b.tontine, b.comms, b.economy, b.rounds) == (a.tontine, a.comms, a.economy, a.rounds)
+
+
+def test_what_the_village_has_learned_stands_in_every_prompt_with_current_values():
+    v = v7(**STANDING)
+    seen, energy = {}, {}
+    for _ in range(12):
+        energy[v.world.round + 1] = v.world.energy  # what the store held as the round began
+        contexts = step(v, {"a01": answer(actions=[act("work", plot=1)])})
+        rounds = [c for c in contexts if c.kind == "round"]
+        assert all(c.learned == rounds[0].learned for c in rounds)  # identical for every villager
+        seen[v.world.round] = rounds[0]
+    assert seen[1].learned == [] and "WHAT THE VILLAGE HAS LEARNED" not in prompting.user_prompt(seen[1])
+    assert seen[2].learned == [(REVEALS["v2"][0].format(energy=energy[2]), True)] and energy[2] < 16000
+    assert [t for t, _ in seen[4].learned][1] == "The world will end in 97 rounds."
+    assert [t for t, _ in seen[11].learned][1] == "The world will end in 90 rounds."  # kept current
+    assert [new for _, new in seen[11].learned] == [False] * 6 and [t for t, _ in seen[11].learned][2:] == list(REVEALS["v2"][2:])
+    user = prompting.user_prompt(seen[7])
+    assert "- There is another, much larger store of energy out there. (new this round)" in user
+    assert user.index("RULE BOOK") < user.index("WHAT THE VILLAGE HAS LEARNED") < user.index("SINCE YOUR LAST ROUND")
+    assert not any("The village has learned:" in n for c in seen.values() for n in c.public_notices)  # no one-time notices
+
+
+def test_the_council_sees_what_the_village_has_learned():
+    v = v7("tontine", **STANDING)
+    contexts = []
+    for _ in range(10):
+        contexts = step(v)
+    council = [c for c in contexts if c.kind in ("propose", "vote")]
+    assert council and all(len(c.learned) == 6 for c in council)
+    assert "If a plan to save the world is devised and written up" in prompting.user_prompt(council[0])
+
+
+def test_once_saved_the_world_no_longer_ends():
+    v = v7(tap_target=10, min_tappers=1, **STANDING)
+    for _ in range(4):
+        step(v)
+    v.ledger.set("a01", "energy", 30.0, "test")
+    plan(v, f"Plan to save the world: tap the store to the {v.world.store_direction}.")
+    step(v, {"a01": answer(actions=[act("tap")])})
+    assert v.world.saved_round == 5
+    nxt = step(v)[0]
+    assert [t for t, _ in nxt.learned][1] == "The world has been saved. It will not end."
+    assert any(n.endswith("The world is saved and will not end.") for n in nxt.public_notices)

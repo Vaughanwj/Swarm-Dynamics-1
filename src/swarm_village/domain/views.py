@@ -92,3 +92,4 @@ class AgentContext:
     answers: bool = False  # Arm B, standing requests: the answer has a child_answers field
     trade: bool = False  # items read may be passed on; the answer has pass_on and buy fields
     offers_to_me: list[str] = field(default_factory=list)  # offers shown this round, once
+    learned: list[tuple[str, bool]] = field(default_factory=list)  # run 8: (what the village has learned, new this round)
