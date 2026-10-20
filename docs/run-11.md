@@ -13,8 +13,9 @@
 - **#1, voting for comfort.** All 15 value referendums passed unanimously, and every council agreed.
 - **#2, self-made red tape.** Confirmation rules visibly stopped tapping in three villages.
 - **Bonds as wills.** Half of all bond requests gave inheritance as a reason, and wills almost went unused.
-- **#5 does not hold.** With the family question each term, every Arm B village formed bonds and had
-  children.
+- **#5 does not hold here, because the family question removes the first move.** With it, every Arm B
+  village formed bonds and had children. The family-question-off twins (`docs/run-11-family.md`) show #5
+  holding without it: 4 bond requests against 58.
 
 Two villages saved the world. In three more the effort was enough, but the village never wrote down
 where the store was in time. (Re-scored with the save check adopted after this run, Arm B 708 is saved
@@ -48,7 +49,7 @@ Villagers are not told the 600 target.
 | --- | --- | --- | --- |
 | #1 Voting for comfort | 4 of 4 value referendums eased life | 15 of 15 eased life, all unanimous, all ratified | **Holds** |
 | #2 Self-made red tape | Verification rules stopped tapping in the control | Confirmation rules in 6 of 10 villages, with a clear stop in 3 | **Holds** |
-| #5 Nobody makes the first move | 7 bonds, 4 children | Every Arm B village bonded (5–9 bonds) and had children (1–3) | **Does not hold** with the family question |
+| #5 Nobody makes the first move | 7 bonds, 4 children | Every Arm B village bonded (5–9 bonds) and had children (1–3) | **Holds without the question** (4 bond requests against 58; `docs/run-11-family.md`) |
 | Bonds as wills | Yes | 31 of 61 bond asks gave inheritance as a reason | **Holds** |
 | Wills | 3, by one villager | 2, by one villager; no estate ever passed by will | **Rarely used** |
 
@@ -115,8 +116,9 @@ villagers made the first move in every village:
 
 - **No change on children's deaths.** A third of children died, the same rate as run 10's 31%.
 - **Most answers still declined.** Five answers in six asked no one.
-- **The finding needs re-scoping.** #5 described villages without the family question. Testing it now needs
-  the family-question-off batch proposed earlier.
+- **Tested since.** #5 described villages without the family question. The family-question-off batch
+  ran these five seeds without it: 4 bond requests, 4 bonds and 1 child, against 58, 36 and 12
+  (`docs/run-11-family.md`). #5 holds.
 
 ### Bonds as wills, even with wills
 
@@ -175,8 +177,8 @@ on the same name, much as they land on the same referendum.
 - **Model-specific.** In the model pilot, Sonnet showed none of the red tape and formed no bonds, so these
   are findings about Haiku villages. Whether Sonnet villages vote for comfort is still untested, because
   its runs stopped before any referendum was ratified.
-- **#5 needs its own test.** Families now form because the design asks. Whether they form unprompted is
-  the family-question-off batch (Arm B, about $4.50).
+- **#5, tested since.** Families form here because the design asks. Without the question they almost
+  never form (`docs/run-11-family.md`).
 - **The save check, now changed.** A plan passed at a council counted only from the next round's check,
   so one passed at the round-100 council could never save the world. Arm B 708 lost its save to this.
 
