@@ -148,7 +148,10 @@ die. They do so even when wills are available, and wills themselves are barely u
 - **Wills were rarely used.** Six wills were written in 11 Arm B villages, and one estate passed by will.
 - **All six were written by the same slot,** villager a09 (Iris), in three different seeds. That points to
   something about the slot (its name, its sibling pairing with a10, its place in the prompt's lists),
-  not to a disposition. It needs a check before anything is said about wills.
+  not to a disposition.
+- **A name swap was inconclusive** (`docs/run-11-names.md`). With Iris and Cedar's names traded on two
+  seeds, nobody wrote or mentioned a will. That holds for the slot under its new name, and for Iris at a03
+  in the one village where it survived. Nothing should be claimed about wills yet.
 - **First seen in run 7,** where bonds were the only way to leave energy. Three villagers there asked for
   bonds 106 times, 77 of them to a sibling, under an older rule that never showed a request to its target.
 
@@ -222,8 +225,8 @@ under the threat.
 1. **Sonnet without the save pause.** Seed 701, both arms, with `commons.rounds_after_saved: 0` so the
    villages reach their referendums. This tests #1 and families on a second model. Each 100-round run
    costs about $9 to $20.
-2. **The a09 check.** Swap villagers' names or order on two seeds (Arm B, about $2 a run), to see whether
-   wills follow the slot.
+2. **The a09 check.** Done on two seeds, and inconclusive (`docs/run-11-names.md`). Settling it would take
+   about six runs per condition, at about $1 a run.
 3. **A red-tape probe.** Tell tappers how much effort is still needed. If councils stop demanding proof,
    the red tape comes from not seeing progress.
 4. **A one-parent condition.** Let one villager have a child alone, to test the tension with the
