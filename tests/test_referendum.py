@@ -237,3 +237,24 @@ def test_the_run10_config():
     b = YamlConfig().run_config(doc, "tontine", 701, "t")
     assert b.prompt.version == "v10" and b.commons.plan_check == "direction" and b.commons.referendum_every == 33
     assert b.tontine.education and doc["seeds"] == [701, 702, 703] and doc["arms"] == ["control", "tontine"]
+
+
+def test_referendums_every_30_rounds_fall_at_30_60_and_90():
+    """Run 11: the name at round 30 (voted at 31, ratified at 40); later questions set by the councils
+    at 50 and 80, voted in the referendum round and ratified by that round's council."""
+    everyone = [f"a{n:02d}" for n in range(1, 11)]
+    rt = Village(names={"a01": "Hollow"}, name_votes={i: "Hollow" for i in everyone}, yes=everyone, propose=propose_v3)
+    v = village("control", rounds=100, economy={**NO_ACCIDENTS, "start_energy": 300},
+                commons={"enabled": True, "referendum_every": 30}, tontine={"cull_mode": "scarcity"})
+    run_to(v, rt, 30)
+    assert v.world.referendum["stage"] == "names_proposed"
+    run_to(v, rt, 40)
+    assert v.world.village_name == "Hollow"
+    run_to(v, rt, 50)
+    assert v.world.referendum["stage"] == "set" and v.world.referendum["round"] == 60
+    run_to(v, rt, 60)  # voted in round 60, ratified by round 60's council
+    assert v.world.overrides == {"economy.spoilage": 0.05} and v.world.referendum is None
+    council50 = next(c for c in rt.contexts if c.round == 50 and c.kind == "propose")
+    assert council50.referendum_round == 60
+    run_to(v, rt, 80)
+    assert v.world.referendum["round"] == 90

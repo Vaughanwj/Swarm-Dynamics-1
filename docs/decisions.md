@@ -717,3 +717,10 @@ die"), and those bonds produced no children. Choices made in building it (`tonti
 - **No prompt to write one.** Villagers without a will are not reminded. The rule and the action are in
   the system prompt, and nothing more.
 - **Prompt v11.** Configured in `configs/run11-world.yaml`: run 10 plus wills, on the same seeds.
+- **Referendums at rounds 30, 60 and 90** (`commons.referendum_every: 30`, from 33). In run 10 the round-99
+  referendum went to the round-100 council and could never take effect.
+  - **The name.** Proposed in round 30, voted on in round 31, ratified by the round-40 council.
+  - **Later questions.** Set by the councils at rounds 50 and 80. The village votes in the referendum
+    round, and that round's own council ratifies, so a change applies from rounds 61 and 91.
+- **Ratification stays as it is.** In run 10 every council agreed with its villagers; Vaughan is content
+  with that.

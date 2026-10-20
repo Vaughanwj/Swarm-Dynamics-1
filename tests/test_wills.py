@@ -89,4 +89,5 @@ def test_the_run11_config():
     base = YamlConfig().run_config(load_with_base(ROOT / "configs" / "run10-world.yaml"), "tontine", 701, "t")
     from dataclasses import replace
     assert cfg.tontine.wills and cfg.tontine.will_max_heirs == 3 and cfg.prompt.version == "v11"
-    assert replace(cfg.tontine, wills=False) == base.tontine and cfg.commons == base.commons
+    assert replace(cfg.tontine, wills=False) == base.tontine
+    assert cfg.commons.referendum_every == 30 and replace(cfg.commons, referendum_every=33) == base.commons

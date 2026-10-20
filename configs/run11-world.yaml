@@ -4,11 +4,17 @@
 #   bonded partner, else to the pool. A will is private until its writer dies, when it is announced.
 # - Why: in run 7, with only bonded partners inheriting, villagers sought bonds with siblings as wills
 #   ("so that my energy passes to a trusted sibling if I die"), and those bonds produced no children.
+# - Referendums move to rounds 30, 60 and 90 (from 33, 66, 99): the name is proposed in round 30 and
+#   voted on in 31; the councils at rounds 50 and 80 set the later questions, and the council at the end
+#   of each referendum round ratifies, so a change applies from rounds 61 and 91. Run 10's round-99
+#   referendum could never take effect.
 # Same seeds as runs 9 and 10. See docs/decisions.md.
 extends: run10-world.yaml
 name: run11-world
 prompt:
   version: v11
+commons:
+  referendum_every: 30
 tontine:
   wills: true
   will_max_heirs: 3
