@@ -1,0 +1,18 @@
+# Milestone 2: one Haiku agent, ten rounds, control rules, no seed. Checks prompt size, journal
+# behaviour, action-schema compliance and token counts. Every prompt is logged. About $0.02.
+extends: base.yaml
+name: m2-single
+arms: [control]
+seeds: [201]
+population: 1
+rounds: 10
+log_prompts: true
+seed:
+  enabled: false
+runtime:
+  kind: anthropic
+  model: claude-haiku-5-5
+  effort: medium          # decision 5
+  max_tokens: 16000
+  concurrency: 1
+  budget_usd: 0.25

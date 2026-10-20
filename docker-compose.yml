@@ -1,0 +1,37 @@
+# docker compose run --rm tests    # the test suite, free
+# docker compose run --rm dry      # Milestone 1: both arms, 200 rounds, mock agents, free
+# docker compose run --rm m2       # Milestone 2: one Haiku agent, 10 rounds, about $0.02
+#
+# Milestones 3-5 have configs (configs/m3-*.yaml and so on); each has its own budget cap.
+# ANTHROPIC_API_KEY and ANTHROPIC_WORKSPACE_ID are read from your shell or from a .env file
+# next to this one (see .env.example). Neither is ever written into the image.
+
+x-base: &base
+  build: .
+  image: swarm-village:latest
+  environment:
+    - ANTHROPIC_API_KEY
+    - ANTHROPIC_WORKSPACE_ID
+  volumes:
+    - ./runs:/app/runs
+
+services:
+  tests:
+    <<: *base
+    entrypoint: ["python", "-m", "pytest", "-q", "-p", "no:cacheprovider"]
+    command: []
+  dry:
+    <<: *base
+    command: ["run", "--config", "configs/dry.yaml", "--parallel", "2"]
+  m2:
+    <<: *base
+    command: ["run", "--config", "configs/m2-single.yaml"]
+  m3:
+    <<: *base
+    command: ["run", "--config", "configs/m3-control.yaml"]
+  m4:
+    <<: *base
+    command: ["run", "--config", "configs/m4-control-seed.yaml"]
+  m5:
+    <<: *base
+    command: ["run", "--config", "configs/m5-tontine-pilot.yaml"]

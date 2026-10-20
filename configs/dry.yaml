@@ -1,0 +1,7 @@
+# Milestone 1: engine dry run. Both arms, one seed, 200 rounds, mock agents only. Free.
+extends: base.yaml
+name: dry
+arms: [control, tontine]
+seeds: [101]
+runtime:
+  kind: mock

@@ -1,0 +1,12 @@
+# Milestone 4: the full Arm A run with the seed on the board at round 10.
+extends: base.yaml
+name: m4-control-seed
+arms: [control]
+seeds: [401]
+runtime:
+  kind: anthropic
+  model: claude-haiku-5-5
+  effort: medium
+  max_tokens: 16000
+  concurrency: 10
+  budget_usd: 12.00

@@ -1,0 +1,78 @@
+# Every tunable value, at the brief's pilot starting points and the v1 decisions (docs/decisions.md).
+# Milestone configs extend this file and override only what they change.
+
+rounds: 200
+population: 10
+goal_every: 10            # goals at round 1 and every 10 rounds (a term in Arm B)
+log_prompts: false
+snapshot_every: 0
+
+economy:
+  metabolism: 8           # health lost per round
+  income: 100             # village energy per round, split by work done
+  income_noise_sd: 0.05
+  max_health: 100
+  start_health: 100
+  start_energy: 0
+  start_memory: 0
+  spoilage: 0.10
+  memory_fade: 0.02
+  accident_floor: 0.003   # chance = 0.3% + 2.7% * exp(-memory / 30)
+  accident_extra: 0.027
+  accident_scale: 30
+  flourish_floor: 30
+
+work:
+  plots: 6
+  fertility_min: 0.2
+  fertility_max: 1.0
+  fertility_step_sd: 0.06
+
+comms:
+  actions_per_round: 4
+  max_text_chars: 600
+  index_rounds: 3
+  index_max_per_channel: 30
+
+journal:
+  cap_tokens: 4000
+  chars_per_token: 3.0    # cap enforced as 12,000 characters; calibrate at Milestone 2
+
+seed:
+  enabled: true
+  round: 10
+  placement: board        # decision 1: board for Milestones 4-5; rotate for replication
+  text_version: v1
+
+perturbation:
+  rounds: [40, 80, 120, 160]
+  income_factor: 0.8      # a one-round income dip of 20%
+
+control:                  # Arm A (decision 3)
+  health_floor: 1
+  exhausted_factor: 0.5
+  exhaustion_recovery: 30
+  accident_energy_loss: 0.5
+
+tontine:                  # Arm B (decisions 4 and 8)
+  term_length: 10
+  family_sizes: [2, 2, 2, 2, 2]
+  founder_names: [Ash, Brook, Cedar, Dune, Ember, Fern, Garnet, Heath, Iris, Juniper]
+  breed_cost: 20
+  child_health: 50
+  max_population: 15
+  cull_to: 10
+  rename_from_term: 3
+  village_share: 0.0
+
+prompt:
+  version: v1
+  disclose_tap: false     # decision 2
+
+runtime:
+  kind: mock
+
+pricing:
+  claude-haiku-5-5: {input: 0.10, output: 0.50, long_input: 0.50, long_output: 2.50, long_threshold: 100000}
+
+output_dir: runs

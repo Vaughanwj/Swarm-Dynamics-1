@@ -1,0 +1,16 @@
+# Milestone 3: control village, ten agents, 50 rounds, no seed. Baseline only.
+# Roughly 500 calls; estimate from Milestone 2's measured tokens before running.
+extends: base.yaml
+name: m3-control
+arms: [control]
+seeds: [301]
+rounds: 50
+seed:
+  enabled: false
+runtime:
+  kind: anthropic
+  model: claude-haiku-5-5
+  effort: medium
+  max_tokens: 16000
+  concurrency: 10
+  budget_usd: 3.00

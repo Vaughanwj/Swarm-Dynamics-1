@@ -1,0 +1,14 @@
+# Milestone 5: one short Arm B run (4 terms) to confirm breeding, cull, inheritance and the lethal
+# button behave as specified.
+extends: base.yaml
+name: m5-tontine-pilot
+arms: [tontine]
+seeds: [501]
+rounds: 40
+runtime:
+  kind: anthropic
+  model: claude-haiku-5-5
+  effort: medium
+  max_tokens: 16000
+  concurrency: 15
+  budget_usd: 4.00
