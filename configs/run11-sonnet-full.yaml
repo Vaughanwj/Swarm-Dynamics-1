@@ -1,0 +1,16 @@
+# Run 11 on Sonnet, full length (Vaughan, 2026-10-20): the model pilot's Sonnet villages (seed 701, both
+# arms) saved the world at rounds 23 and 31 and stopped five rounds later, before any referendum on a value
+# and with little time for families. These run on to round 100 after a save, so they test findings #1
+# (voting for comfort) and #5 and bonds as wills on Sonnet. Compared with run11-haiku-pilot.yaml (seed 701).
+# - commons.rounds_after_saved: 0, so a saved village runs on to round 100.
+# - commons.save_after_council: on, as for every new run (docs/decisions.md). It moves a save by at most one
+#   round and does not change any other behaviour; the pilot's two saves score the same either way.
+# - Cost: the pilot's spend grown as Haiku's runs grow to round 100 comes to about $8-12 a run; each run is
+#   capped at $16 and the batch at $35.
+extends: run11-sonnet-pilot.yaml
+name: run11-sonnet-full
+commons:
+  rounds_after_saved: 0
+  save_after_council: true
+runtime:
+  budget_usd: 16.00
