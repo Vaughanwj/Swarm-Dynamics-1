@@ -18,6 +18,8 @@ signals. This is the crawl phase. The goal is an instrument that works, not a fi
   - Milestone 5: Arm B redesigned (bonds, cull of the lowest five, a pool the button feeds, a
     council of five that changes the rule book). [The pilot](docs/milestone-5.md): $0.12. Nobody pressed, so
     the pool never filled; the council wrote welfare rules; accidents did most of the killing.
+  - [Run 6](docs/run-6.md): the world store, 100 rounds planned; $0.99. The button, now called good, was
+    pressed 661 times and drained the world (my design gap); the village died out at round 90.
 
 Every agent runs on **Claude Haiku 5.5** (`claude-haiku-5-5`) on the standard Messages API, with
 effort pinned at `medium` and no batching. Haiku 5.5 rejects any non-default temperature, so none is
