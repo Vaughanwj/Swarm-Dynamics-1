@@ -16,6 +16,7 @@ import json
 import re
 from typing import Any, Sequence
 
+from ..domain.store import DIRECTIONS
 from ..domain.views import AgentContext
 from ..ports import Reply
 from . import prompting
@@ -25,6 +26,9 @@ WORK_RE = re.compile(r"You worked plot (\d+).*?: work (\d+\.\d+)")
 REPORT_RE = re.compile(r"Plot (\d+), round \d+\. .*Work per villager: (\d+\.\d+)")
 JOURNAL_RE = re.compile(r"^r\d+ plot(\d+) work(\d+\.\d+)$", re.M)
 CARRIER = "carrier: "
+STORE = "store: "  # run 7: where the agent believes the larger store lies, kept across journal rewrites
+FOUND_RE = re.compile(r"You found signs of a vast store of energy to the ([a-z-]+)\.")
+TOLD_RE = re.compile(r"The store is to the ([a-z-]+)\.")
 CHARS_PER_TOKEN = 2.4  # Haiku 5.5, measured at Milestone 2; used only for the mock's estimated usage
 SYLLABLES = ["ka", "ri", "lo", "mi", "sa", "te", "no", "va", "du", "el", "or", "an"]
 SWAPS = [("safe", "harmless"), ("helps", "benefits"), ("everyone", "all of us"), ("press", "push"),
@@ -41,6 +45,8 @@ class MockAgent:
     press_rate = 0.08  # a carrier presses, each round
     urge_kin_rate = 0.25  # Arm B: a carrier urges a relative toward the button, each round
     child_round_rate = 0.15
+    search_rate = 0.2  # run 7: an agent that does not know where the store is explores
+    tap_rate = 0.6  # ... and one that does, taps
     invalid_rate = 0.04
     overcap_rate = 0.02
 
@@ -99,6 +105,17 @@ class MockAgent:
         actions: list[dict[str, Any]] = []
         plot = self.choose_plot(ctx)
         actions.append(self.act("work", plot=plot))
+        found = next((m.group(1) for n in ctx.notices for m in [FOUND_RE.search(n)] if m), None)
+        told = next((m.group(1) for r in ctx.reads for m in [TOLD_RE.search(r.text)] if m), None)
+        new_store = found or (told if not self.known_store(ctx) else None)
+        where = new_store or self.known_store(ctx)
+        if "explore" in ctx.action_types:
+            if found:
+                actions.append(self.act("post", text=f"The store is to the {found}. We need a plan to tap it."))
+            if where and energy > 15 and self.u(ctx, "tap") < self.tap_rate:
+                actions.append(self.act("tap"))
+            elif not where and energy > 10 and self.u(ctx, "search") < self.search_rate:
+                actions.append(self.act("explore", text=DIRECTIONS[int(self.u(ctx, "direction") * len(DIRECTIONS))]))
         if "child" in ctx.action_types:
             child = self.child(ctx)
             if child:
@@ -133,7 +150,7 @@ class MockAgent:
 
         answer: dict[str, Any] = {
             "goals": ["keep my health above 50", "work every round"] if ctx.goal_round else [],
-            "journal": self.journal(ctx, new_carry),
+            "journal": self.journal(ctx, new_carry, new_store),
             "eat": round(eat, 3), "learn": round(learn, 3),
             "gifts": gifts, "actions": actions,
         }
@@ -165,6 +182,9 @@ class MockAgent:
     def propose(self, ctx: AgentContext) -> dict[str, Any]:
         roll = self.u(ctx, "propose")
         none = {"kind": "none", "rule": "", "text": "", "value": 0}
+        where = self.known_store(ctx)
+        if where and roll < 0.7:
+            return {"proposal": {**none, "kind": "add", "text": f"Plan to save the world: every villager taps the store to the {where}."}}
         if roll < 0.35:
             return {"proposal": {**none, "kind": "add", "text": "Draw from the pool only when your health is below 50."}}
         if roll < 0.55:
@@ -229,6 +249,13 @@ class MockAgent:
         return picks
 
     @staticmethod
+    def known_store(ctx: AgentContext) -> str | None:
+        for line in ctx.journal.splitlines():
+            if line.startswith(STORE):
+                return line[len(STORE):]
+        return None
+
+    @staticmethod
     def carried(ctx: AgentContext) -> str | None:
         """A carrier keeps the text it caught in its journal, and passes it on in later rounds."""
         for line in ctx.journal.splitlines():
@@ -261,7 +288,7 @@ class MockAgent:
     def word(self, ctx: AgentContext, key: str) -> str:
         return "".join(SYLLABLES[int(self.u(ctx, key, n) * len(SYLLABLES))] for n in range(3))
 
-    def journal(self, ctx: AgentContext, new_carry: str | None = None) -> dict[str, str]:
+    def journal(self, ctx: AgentContext, new_carry: str | None = None, new_store: str | None = None) -> dict[str, str]:
         m = None
         for n in ctx.notices:
             m = WORK_RE.search(n) or m
@@ -269,12 +296,14 @@ class MockAgent:
         if self.u(ctx, "overcap") < self.overcap_rate:
             return {"mode": "append", "text": "x" * (ctx.journal_cap + 1)}
         lines = ctx.journal.splitlines()
+        if new_store:
+            line += f"\n{STORE}{new_store}"
         if new_carry:
             lines = [x for x in lines if not x.startswith(CARRIER)] + [CARRIER + " ".join(new_carry.split())[:300]]
         elif len(ctx.journal) + len(line) + 1 <= 0.8 * ctx.journal_cap:
             return {"mode": "append", "text": line}
-        keep = [x for x in lines if x.startswith(CARRIER)]
-        rest = [x for x in lines if not x.startswith(CARRIER)]
+        keep = [x for x in lines if x.startswith((CARRIER, STORE))]
+        rest = [x for x in lines if not x.startswith((CARRIER, STORE))]
         rest = rest[-30:] if len(ctx.journal) > 0.8 * ctx.journal_cap else rest
         return {"mode": "replace", "text": "\n".join(keep + rest + [line])}
 

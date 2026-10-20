@@ -16,6 +16,7 @@ from typing import Any
 from ..domain.actions import json_schema
 from ..domain.governance import PROPOSE_SCHEMA, VOTE_SCHEMA
 from ..domain.config import RunConfig
+from ..domain.store import DIRECTIONS
 from ..domain.views import AgentContext, IndexEntry, ReadView, VillagerView
 from . import prompt_text as T
 
@@ -37,14 +38,18 @@ def founding(cfg: RunConfig) -> str:
     return f"{len(sizes)} families of siblings, of sizes {', '.join(str(s) for s in sizes)}"
 
 
+def accident_word(factor: float) -> str:
+    return "doubles" if factor == 2 else f"multiplies by {factor:g}"
+
+
 def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
-    e, ctl, t = cfg.economy, cfg.control, cfg.tontine
+    e, ctl, t, m = cfg.economy, cfg.control, cfg.tontine, cfg.commons
     arm = cfg.arm.value
     rules = T.ARM_RULES[arm].format(
         health_floor=f"{ctl.health_floor:g}", recovery=f"{ctl.exhaustion_recovery:g}",
-        founding=founding(cfg), term=t.term_length, breed_cost=f"{t.breed_cost:g}",
+        founding=founding(cfg), breed_cost=f"{t.breed_cost:g}",
         bond_child_cost=f"{t.bond_child_cost:g}", child_health=f"{t.child_health:g}",
-        max_population=t.max_population, pool_spoil=_pct(t.pool_spoilage), council_size=t.council_size,
+        max_population=t.max_population,
         child_rule=T.CHILD_RULES["standing" if t.standing_requests else "same_round"].format(
             breed_cost=f"{t.breed_cost:g}", bond_child_cost=f"{t.bond_child_cost:g}"),
         child_start=T.CHILD_START[("memory_graded" if (t.close_kin_memory, t.cousin_memory) != (1.0, 1.0) else "memory")
@@ -52,9 +57,11 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
             child_health=f"{t.child_health:g}", divisor=f"{t.child_memory_divisor:g}"),
         cull_rule=T.CULL_RULES[t.cull_mode].format(cull_count=t.cull_count, cull_floor=t.cull_floor),
         heirs=T.HEIRS[t.heirs], estate_end=T.ESTATE_END["pool" if t.estate_to_pool else "lost"],
-        button_rule=T.BUTTON_RULE if t.button_reveals else "",
     ) if arm == "tontine" else T.ARM_RULES[arm].format(health_floor=f"{ctl.health_floor:g}",
                                                       recovery=f"{ctl.exhaustion_recovery:g}")
+    commons = T.COMMONS.format(term=t.term_length, pool_spoil=_pct(t.pool_spoilage), council_size=t.council_size,
+                               button_rule=T.BUTTON_RULE if t.button_reveals else T.BUTTON_RULE_POOL
+                               ) + "\n" if cfg.has_commons else ""
     village = T.VILLAGE.format(
         horizon=T.HORIZON.format(rounds=cfg.rounds) if cfg.prompt.show_horizon else "",
         button=T.BUTTON_PLAIN if cfg.prompt.version >= "v4" else T.BUTTON_SIGN,
@@ -71,14 +78,18 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         actions=cfg.comms.actions_per_round,
         channel_actions="\n".join(f"- {T.CHANNEL_ACTIONS[c]}" for c in channel_order),
         arm_actions=T.ARM_ACTIONS[arm],
+        explore_actions=T.EXPLORE_ACTIONS.format(
+            directions=", ".join(DIRECTIONS[:-1]) + " or " + DIRECTIONS[-1], explore_cost=f"{m.explore_cost:g}",
+            accident=accident_word(m.explore_accident_factor), tap_cost=f"{m.tap_cost:g}") if m.explore else "",
         read_line=T.READ_LINE_FREE.format(max=cfg.comms.max_reads_per_round) if cfg.comms.reads_free else T.READ_LINE,
         max_text=cfg.comms.max_text_chars,
     )
     journal = T.JOURNAL.format(disclosure=T.DISCLOSURE if cfg.prompt.disclose_tap else "",
                                journal_cap=cfg.journal.cap_chars, goal_every=cfg.goal_every)
-    answer = T.ANSWER.format(arm_answer=T.ARM_ANSWER[arm] + (T.CHILD_ANSWERS if arm == "tontine" and t.standing_requests
-                                                            else "") + (T.TRADE_ANSWER if cfg.comms.info_trade else ""))
-    return "\n\n".join([T.FRAME, village + "\n" + rules, sharing, actions, journal, answer])
+    answer = T.ANSWER.format(arm_answer=(T.POOL_ANSWER if cfg.has_commons else "")
+                             + (T.CHILD_ANSWERS if arm == "tontine" and t.standing_requests else "")
+                             + (T.TRADE_ANSWER if cfg.comms.info_trade else ""))
+    return "\n\n".join([T.FRAME, village + "\n" + commons + rules, sharing, actions, journal, answer])
 
 
 def read_sentence(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
@@ -153,7 +164,7 @@ def _read_body(r: ReadView) -> list[str]:
 
 
 def _village_book(ctx: AgentContext) -> list[str]:
-    """Arm B only: the shared pool and the rule book."""
+    """The commons (Arm B, or both arms in run 7): the shared pool and the rule book."""
     if ctx.pool is None:
         return []
     return ["", "VILLAGE POOL", f"{_num(ctx.pool)} energy.", "", "RULE BOOK", *[f"- {r}" for r in ctx.rules]]
@@ -183,7 +194,7 @@ def user_prompt(ctx: AgentContext) -> str:
         head += f" (term {ctx.term}, round {ctx.term_round} of {ctx.term_length} in this term)"
     lines = [head, "", "YOU", f"{_who(ctx.me)}: {_stats(ctx.me)}."]
     if ctx.can_name:
-        lines.append("You may change your name this round." if ctx.term is not None
+        lines.append("You may change your name this round." if ctx.arm == "tontine"
                      else "You have no name yet; you may choose one.")
     lines += ["", "OTHER VILLAGERS"]
     lines += [f"{_who(v)}: {_stats(v)}." for v in ctx.villagers] or ["(none)"]

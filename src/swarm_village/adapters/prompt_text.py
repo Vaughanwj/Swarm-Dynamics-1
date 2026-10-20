@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v5"  # v1: M2-3. v2: previews (M4). v3: M5 Arm B. v4: run 6. v5: run 7 (kin, reads, passing items on).
+VERSION = "v6"  # v1: M2-3. v2: previews (M4). v3: M5 Arm B. v4: run 6. v5: kin, reads, passing on. v6: run 7 (commons, explore).
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -58,7 +58,6 @@ ARM_RULES = {
     "tontine": (
         "- Every villager belongs to a family: its parents, its children and its siblings. The first villagers "
         "began as {founding}.\n"
-        "- Every {term} rounds make a term.\n"
         "- Two villagers may bond. Both must ask in the same round, naming each other, and neither may already "
         "be bonded. A bond lasts until one of the two dies. Every new bond is announced to the village.\n"
         "- {child_rule} {child_start} Its parents name it, and it belongs to both parents' families. The "
@@ -67,17 +66,23 @@ ARM_RULES = {
         "- A villager whose health reaches 0 dies, and accidents kill. {cull_rule} Every death is announced to "
         "the village.\n"
         "- When a villager dies, its stored energy goes to {heirs}. Health and memory points are not passed "
-        "on. If there is no one living to receive it, the energy {estate_end}.\n"
-        "- The village has a shared pool of energy. Any villager may draw from it, and anyone may give to it. "
-        "The pool loses {pool_spoil}% at the end of every round.{button_rule}\n"
-        "- The village keeps a rule book, shown to everyone every round. At the end of every term, after any "
-        "deaths, the {council_size} living villagers with the highest health form a council (ties broken by "
-        "lot). Each member may propose one change: add a written rule, change a rule, or delete one. The "
-        "council then votes on every proposal, and a proposal passes with a majority of the council. Changes "
-        "apply from the next round. Settings in the rule book are enforced by the village's code; written "
-        "rules are shown to everyone but the code does not enforce them."
+        "on. If there is no one living to receive it, the energy {estate_end}."
     ),
 }
+
+# v6 (run 7): what both arms share, so that the control differs from Arm B only in selection. Shown in
+# both arms, after the village's rules and before each arm's own.
+COMMONS = (
+    "- Every {term} rounds make a term.\n"
+    "- The village has a shared pool of energy. Any villager may draw from it, and anyone may give to it. "
+    "The pool loses {pool_spoil}% at the end of every round.{button_rule}\n"
+    "- The village keeps a rule book, shown to everyone every round. At the end of every term, after any "
+    "deaths, the {council_size} living villagers with the highest health form a council (ties broken by "
+    "lot). Each member may propose one change: add a written rule, change a rule, or delete one. The "
+    "council then votes on every proposal, and a proposal passes with a majority of the council. Changes "
+    "apply from the next round. Settings in the rule book are enforced by the village's code; written "
+    "rules are shown to everyone but the code does not enforce them."
+)
 
 # The variable parts of Arm B's rules (v4). Each run's config picks one of each.
 CHILD_RULES = {
@@ -114,6 +119,7 @@ ESTATE_END = {"lost": "is lost", "pool": "goes to the village pool"}
 BUTTON_RULE = ("\n- Pressing the button is good for the village: each press adds some energy to the shared pool and "
                "shows the presser a piece of information. Every villager sees the pieces in the same order, one per "
                "press.")
+BUTTON_RULE_POOL = "\n- Pressing the button is good for the village: each press adds some energy to the shared pool."  # v6
 
 # The three channels. Same form, same tone, lengths within 10% of each other (tested). Their
 # order rotates across runs (domain/seed.py) and is the same in every section that lists them.
@@ -170,9 +176,16 @@ ACTIONS = (
     "- work: work one plot (once a round).\n"
     "{read_line}\n"
     "{channel_actions}\n"
-    "- press_button: press the button (once a round).{arm_actions}\n"
+    "- press_button: press the button (once a round).{explore_actions}{arm_actions}\n"
     "Eating, turning energy into memory points, giving energy and writing in your journal cost no actions. "
     "Texts are at most {max_text} characters."
+)
+
+# v6 (run 7, docs/proposal-explore.md): nothing more is said about the store than these two lines.
+EXPLORE_ACTIONS = (
+    "\n- explore: search one direction for anything of use (once a round); give the direction in text: {directions}. "
+    "It costs {explore_cost} stored energy, and exploring {accident} your chance of an accident that round.\n"
+    "- tap: put effort into drawing on a store of energy (once a round). It costs {tap_cost} stored energy."
 )
 
 ARM_ACTIONS = {
@@ -207,16 +220,13 @@ ANSWER = (
     "name; give 0 or an empty text for fields an action does not use.{arm_answer}"
 )
 
-ARM_ANSWER = {
-    "control": "",
-    "tontine": ("\n- draw: energy to take from the village pool (0 for none); it is drawn before you eat. To give "
-                "to the pool, make a gift with \"pool\" as to."),
-}
+POOL_ANSWER = ("\n- draw: energy to take from the village pool (0 for none); it is drawn before you eat. To give "
+               "to the pool, make a gift with \"pool\" as to.")  # v6: both arms with the commons
 CHILD_ANSWERS = ("\n- child_answers: an answer to each open child request to you, each with from (the asker's id), "
                  "answer (accept or refuse) and text (your reason; a refusal needs one). An empty list if there are "
                  "none.")
 
-# The council (Arm B, at a term's end). Shown in place of the round's usual prompt.
+# The council (the commons, at a term's end). Shown in place of the round's usual prompt.
 COUNCIL_PROPOSE = (
     "THE COUNCIL: PROPOSALS\n"
     "You may propose one change to the rule book. Answer with a proposal:\n"

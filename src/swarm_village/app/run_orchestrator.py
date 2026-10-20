@@ -96,7 +96,9 @@ class RunOrchestrator:
         archived: list[dict[str, Any]] = []
         try:
             village.found()
-            for r in range(1, cfg.rounds + 1):
+            r = 0
+            while r < village.last_round():  # a saved world pauses the run a few rounds later (run 7)
+                r += 1
                 runner.run(r)
                 save_archived_journals(storage, village, archived)
                 if cfg.snapshot_every and r % cfg.snapshot_every == 0:
@@ -104,6 +106,8 @@ class RunOrchestrator:
                 if village.finished():
                     log.record("run_extinct", round=r)
                     break
+            if village.world.saved_round is not None and village.world.alive_any() and r == village.last_round():
+                log.record("run_paused", round=r, saved_round=village.world.saved_round)
             log.record("run_end", round=village.world.round, seconds=round(self.clock.now() - started, 1))
         except Exception as e:
             log.record("run_error", round=village.world.round, error=f"{type(e).__name__}: {e}")

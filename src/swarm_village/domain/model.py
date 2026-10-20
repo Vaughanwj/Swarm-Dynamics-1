@@ -85,14 +85,22 @@ class World:
     items: dict[str, Item] = field(default_factory=dict)
     fertility: list[float] = field(default_factory=list)  # index p-1 is plot p
     public_notices: list[str] = field(default_factory=list)  # announced to everyone at their next context
-    pool: float = 0.0  # Arm B: the shared pool anyone may draw from
-    rules: list[dict[str, Any]] = field(default_factory=list)  # Arm B: the rule book (domain/governance.py)
-    energy: float | None = None  # Arm B, run 6: the hidden world store income and the button draw from
+    pool: float = 0.0  # the commons (Arm B, or both arms in run 7): the shared pool anyone may draw from
+    rules: list[dict[str, Any]] = field(default_factory=list)  # the commons: the rule book (domain/governance.py)
+    energy: float | None = None  # run 6 on: the hidden world store income draws from (both arms with the commons)
     requests: list[dict[str, Any]] = field(default_factory=list)  # Arm B: open child requests
     offers: list[dict[str, Any]] = field(default_factory=list)  # items offered for a price, shown once
+    # Run 7: the larger store (domain/store.py). Its direction is hidden from agents.
+    store_direction: str | None = None
+    effort: float = 0.0  # tapping effort so far
+    tappers: list[str] = field(default_factory=list)  # every villager who has tapped, in order of first tap
+    saved_round: int | None = None  # the round the world was saved
 
     def living(self) -> list[Agent]:
         return [a for a in self.agents.values() if a.alive]
+
+    def alive_any(self) -> bool:
+        return any(a.alive for a in self.agents.values())
 
     def next_agent_id(self) -> str:
         return f"a{len(self.agents) + 1:02d}"
@@ -114,6 +122,10 @@ class World:
             "energy": self.energy,
             "requests": copy.deepcopy(self.requests),
             "offers": copy.deepcopy(self.offers),
+            "store_direction": self.store_direction,
+            "effort": self.effort,
+            "tappers": list(self.tappers),
+            "saved_round": self.saved_round,
         }
 
 
@@ -146,7 +158,8 @@ def item_from_dict(d: dict[str, Any]) -> Item:
 
 NUMERIC = {"health", "energy", "memory"}
 AGENT_FIELDS = {f.name for f in fields(Agent)} - {"id", "born_round", "parents"}
-WORLD_FIELDS = {"round", "fertility", "public_notices", "pool", "rules", "energy", "requests", "offers"}
+WORLD_FIELDS = {"round", "fertility", "public_notices", "pool", "rules", "energy", "requests", "offers",
+                "store_direction", "effort", "tappers", "saved_round"}
 
 
 def tidy(v: float) -> float:

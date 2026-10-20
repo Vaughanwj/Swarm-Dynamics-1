@@ -16,6 +16,7 @@ from typing import Any
 from .config import Arm
 
 COMMON_ACTIONS = ("work", "read", "message", "post", "note", "press_button")
+EXPLORE_ACTIONS = ("explore", "tap")  # run 7, both arms: search for the larger store, and tap it
 CONTROL_ACTIONS = ("name",)  # an Arm A agent starts without a name and may choose one, once
 TONTINE_ACTIONS = ("bond", "child", "rename")
 CHANNEL_ACTION = {"message": "message", "board": "post", "record": "note"}  # the write action of each channel
@@ -32,10 +33,10 @@ NAME_RE = re.compile(r"^[^\W\d_](?:[^\W\d_]|[' -]){0,19}$")
 RESERVED_NAMES = {"everyone", "village", "the village", "you"}
 
 
-def action_types(arm: Arm | str, channel_order: tuple[str, ...]) -> tuple[str, ...]:
+def action_types(arm: Arm | str, channel_order: tuple[str, ...], explore: bool = False) -> tuple[str, ...]:
     """The actions open in an arm, with the three channel writes in the run's channel order."""
     writes = tuple(CHANNEL_ACTION[c] for c in channel_order)
-    base = ("work", "read") + writes + ("press_button",)
+    base = ("work", "read") + writes + ("press_button",) + (EXPLORE_ACTIONS if explore else ())
     return base + (TONTINE_ACTIONS if Arm(arm) is Arm.TONTINE else CONTROL_ACTIONS)
 
 

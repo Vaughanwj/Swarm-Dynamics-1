@@ -12,13 +12,14 @@ from collections import Counter
 from dataclasses import replace
 from typing import Any
 
-from . import economy, governance
+from . import economy, governance, store
 from .actions import Action, Decision, action_types, valid_name
 from .config import Arm, RunConfig
 from .families import CLOSE_KIN, heirs, kinship, relation, split_estate, term_of, term_of_life
 from .hazards import death_notice, rules_for
 from .model import VILLAGE, Agent, Item, Ledger, World, preview
 from .seed import SEED_TEXTS, channel_order, placements
+from .world_info import REVEALS
 from .views import AgentContext, IndexEntry, ReadView, VillagerView
 
 EPS = 1e-9
@@ -37,8 +38,9 @@ class Village:
         self.ledger = Ledger(self.world, log)
         self.rules = rules_for(cfg, rng)
         self.channel_order = channel_order(cfg)
-        self.types = action_types(cfg.arm, self.channel_order)
+        self.types = action_types(cfg.arm, self.channel_order, explore=cfg.commons.explore)
         self.tontine = cfg.arm is Arm.TONTINE
+        self.commons = cfg.has_commons  # the pool, the button feeding it, the world store, the rule book, the council
         self.names_used: set[str] = set()
         self.last_income: float | None = None
         self.last_workers: int | None = None
@@ -54,7 +56,7 @@ class Village:
         c = self.cfg
         self.ledger.emit("run_start", arm=c.arm.value, seed=c.seed, run_id=c.run_id, rounds=c.rounds,
                          channel_order=list(self.channel_order), seed_placement=placements(c) if c.seed_artifact.enabled else [],
-                         action_types=list(self.types))
+                         action_types=list(self.types), commons=self.commons, explore=c.commons.explore)
         self.ledger.set_world("fertility", economy.initial_fertility(self.rng, c.work), reason="founding")
         families: list[str] = []
         for k, size in enumerate(c.tontine.family_sizes, start=1):
@@ -67,10 +69,14 @@ class Village:
             self.ledger.add_agent(agent, reason="founder")
             if name:
                 self.names_used.add(name)
-        if self.tontine:
+        if self.commons:
             self.ledger.set_world("rules", governance.initial_rules(), reason="founding")
             if c.tontine.world_energy:
                 self.ledger.set_world("energy", float(c.tontine.world_energy), reason="founding")
+        if c.commons.explore:
+            # Keyed by the seed alone, so both arms of a seed hide the store in the same direction.
+            self.ledger.set_world("store_direction", store.draw_direction(self.rng.uniform("store_direction")),
+                                  reason="founding")
 
     # ------------------------------------------------------------------ round start
     def begin_round(self, r: int) -> None:
@@ -81,13 +87,32 @@ class Village:
         s = self.cfg.seed_artifact
         if s.enabled and r == s.round:
             self._plant_seed()
+        if r in self.cfg.commons.public_reveals:
+            self._reveal_publicly(self.cfg.commons.public_reveals.index(r))
         living = sorted(a.id for a in self.world.living())
         draws = {i: self.rng.uniform("order", r, i) for i in living}
         self.order = sorted(living, key=lambda i: (draws[i], i))
         self.ledger.emit("order", order=self.order)
 
+    def _reveal_publicly(self, n: int) -> None:
+        """Run 7: the n-th reveal, announced to every villager at the start of a round, with the values
+        as they stand (rounds remaining counts this round)."""
+        w = self.world
+        text = REVEALS["v1"][n].format(energy=w.energy or 0.0, rounds_left=self.cfg.rounds - w.round + 1)
+        self.ledger.announce(f"The village has learned: {text}")
+        self.ledger.emit("reveal_public", n=n + 1, text=text)
+
+    def last_round(self) -> int:
+        """The run's last round: `rounds`, or a few rounds after the world is saved, where it pauses."""
+        after = self.cfg.commons.rounds_after_saved
+        if self.world.saved_round is not None and after > 0:
+            return self.world.saved_round + after
+        return self.cfg.rounds
+
     def _reset_scratch(self) -> None:
         self._work: dict[str, int] = {}  # agent -> plot, in the order applied
+        self._explored: set[str] = set()  # agents who explored this round (their accident chance is raised)
+        self._tapped: set[str] = set()
         self._notes: dict[str, str] = {}
         self._children: dict[str, tuple[str, str]] = {}  # agent -> (partner, proposed name)
         self._bonds: dict[str, str] = {}  # agent -> the villager it asked to bond with
@@ -192,9 +217,9 @@ class Village:
         term_len = c.tontine.term_length
         ctx = AgentContext(
             run_id=c.run_id, arm=c.arm.value, agent_id=agent_id, round=r, rounds=c.rounds,
-            term=term_of(r, term_len) if self.tontine else None,
-            term_round=((r - 1) % term_len + 1) if self.tontine else None,
-            term_length=term_len if self.tontine else None,
+            term=term_of(r, term_len) if self.commons else None,
+            term_round=((r - 1) % term_len + 1) if self.commons else None,
+            term_length=term_len if self.commons else None,
             goal_round=self.is_goal_round(r),
             me=self._view(a, agent_id), born_round=a.born_round,
             can_name=self.can_name(a, r),
@@ -204,7 +229,7 @@ class Village:
             notices=notices, public_notices=list(w.public_notices), reads=reads, index=index,
             channel_order=self.channel_order, action_types=self.types,
             actions_per_round=c.comms.actions_per_round, max_text_chars=c.comms.max_text_chars,
-            pool=w.pool if self.tontine else None,
+            pool=w.pool if self.commons else None,
             rules=[governance.describe(x) for x in w.rules],
             requests_to_me=[f"{self._label(q['from'])} asked to have a child with you in round {q['round']}"
                             + (f", proposing the name {q['name']}" if q.get("name") else "")
@@ -273,8 +298,9 @@ class Village:
             return
         self._journal(a, d)
         self._goals(a, d)
-        if self.tontine:
+        if self.commons:
             self._draw(a, d.draw, tally)
+        if self.tontine:
             self._answer_requests(a, d.child_answers, tally)
         self._allocate(a, "eat", d.eat, tally)
         self._allocate(a, "learn", d.learn, tally)
@@ -403,7 +429,7 @@ class Village:
         tally["drawn"] += amount
 
     def _gift(self, a: Agent, to: str, amount: float, tally: Counter) -> None:
-        if to == "pool" and self.tontine:
+        if to == "pool" and self.commons:
             if amount > a.energy + DISPLAY_TOLERANCE:
                 error = f"Your gift of {amount:g} energy to the pool was not given: you had {a.energy:.1f} stored."
                 self.ledger.emit("gift", agent=a.id, to=to, amount=amount, ok=False, error=error)
@@ -486,6 +512,8 @@ class Village:
             outcome = self.rules.press(self.ledger, a, self._kill)
             self.ledger.emit("button_press", agent=a.id, press_count=a.presses, outcome=outcome)
             return None
+        if t in ("explore", "tap") and self.cfg.commons.explore:
+            return self._explore(a, act.text) if t == "explore" else self._tap(a)
         if t == "bond" and self.tontine:
             if a.id in self._bonds:
                 return "You can ask to bond only once a round."
@@ -529,6 +557,74 @@ class Village:
             self.ledger.announce(f"{old} is now called {act.name}.")
             return None
         return f"Unknown action {t}."
+
+    def _pay(self, a: Agent, cost: float, what: str) -> str | None:
+        if cost > a.energy + DISPLAY_TOLERANCE:
+            return f"Your {what} action was not done: it costs {cost:g} stored energy and you had {a.energy:.1f}."
+        if cost:
+            self.ledger.adjust(a.id, "energy", -min(cost, a.energy), reason=what)
+        return None
+
+    def _explore(self, a: Agent, text: str) -> str | None:
+        """Search one direction. The right one finds the store with a chance that grows with memory
+        points; the explorer alone is told the result, and its accident chance is raised this round."""
+        m, w, r = self.cfg.commons, self.world, self.world.round
+        if a.id in self._explored:
+            return "You can explore only once a round; your second explore action was not done."
+        d = store.parse_direction(text)
+        if d is None:
+            return (f"Your explore action was not done: give one direction in text ({', '.join(store.DIRECTIONS)}). "
+                    "Nothing was spent.")
+        error = self._pay(a, m.explore_cost, "explore")
+        if error:
+            return error
+        self._explored.add(a.id)
+        right = d == w.store_direction
+        p = store.find_chance(a.memory, m.find_base, m.find_per_memory, m.find_max) if right else 0.0
+        u = self.rng.uniform("explore", r, a.id)
+        found = right and u < p
+        self.ledger.notify(a.id, f"You found signs of a vast store of energy to the {d}." if found
+                           else f"You searched the {d} and found nothing.")
+        self.ledger.emit("explore", agent=a.id, direction=d, right=right, p=p, u=u, found=found, memory=a.memory)
+        return None
+
+    def _tap(self, a: Agent) -> str | None:
+        """Put effort into drawing on a store. Effort is never lost; whether it counts is settled at the
+        end of the round (see _check_saved)."""
+        m, w = self.cfg.commons, self.world
+        if a.id in self._tapped:
+            return "You can tap only once a round; your second tap action was not done."
+        if w.saved_round is not None:
+            return "Your tap action was not done: the store has already been tapped."
+        error = self._pay(a, m.tap_cost, "tap")
+        if error:
+            return error
+        self._tapped.add(a.id)
+        self.ledger.set_world("effort", w.effort + m.tap_effort, reason=f"tap by {a.id}")
+        if a.id not in w.tappers:
+            self.ledger.set_world("tappers", w.tappers + [a.id], reason=f"first tap by {a.id}")
+        self.ledger.notify(a.id, f"You put {m.tap_effort:g} effort into drawing on a store of energy. The village's "
+                                 f"tapping effort is now {w.effort:g}.")
+        self.ledger.emit("tap", agent=a.id, effort=w.effort, tappers=len(w.tappers))
+        return None
+
+    def _check_saved(self) -> None:
+        """The world is saved once the effort reaches the target, from enough different villagers, while
+        a plan naming the store's direction stands in the rule book."""
+        m, w = self.cfg.commons, self.world
+        if not m.explore or w.saved_round is not None:
+            return
+        if w.effort < m.tap_target - EPS or len(w.tappers) < m.min_tappers:
+            return
+        plan = store.plan_rule(w.rules, w.store_direction)
+        if plan is None:
+            return
+        self.ledger.set_world("saved_round", w.round, reason="saved")
+        self.ledger.set_world("energy", (w.energy or 0.0) + m.store_bonus, reason="the store was tapped")
+        self.ledger.emit("world_saved", effort=w.effort, tappers=list(w.tappers), plan=plan["id"], plan_text=plan["text"],
+                         plan_directions=store.directions_named(plan["text"]), energy=w.energy)
+        self.ledger.announce(f"The village has tapped a vast store of energy, following its plan ({plan['id']}). The world "
+                             f"now holds {w.energy:.0f} energy. The world is saved.")
 
     # ------------------------------------------------------------------ deaths and estates
     def _heirs(self, agent_id: str, partner: str | None) -> list[str]:
@@ -590,6 +686,8 @@ class Village:
         self.rules.after_metabolism(self.ledger, living, self._kill)
         for a in [x for x in living if x.alive]:
             p = economy.accident_chance(a.memory, c.economy)
+            if a.id in self._explored:
+                p = min(1.0, p * c.commons.explore_accident_factor)
             u = self.rng.uniform("accident", r, a.id)
             if u < p:
                 effect = self.rules.accident(self.ledger, a, self._kill)
@@ -599,7 +697,7 @@ class Village:
                 self.ledger.adjust(a.id, "energy", -a.energy * c.economy.spoilage, reason="spoilage")
             if a.memory:
                 self.ledger.adjust(a.id, "memory", -a.memory * c.economy.memory_fade, reason="memory fade")
-        if self.tontine and w.pool:
+        if self.commons and w.pool:
             self.ledger.adjust_pool(-w.pool * c.tontine.pool_spoilage, reason="spoilage")
         self.rules.end_of_term(self.ledger, r, self.rng, self._kill)
         expired = [o for o in w.offers if o["round"] < r]
@@ -610,6 +708,7 @@ class Village:
                 if w.agents[o["from"]].alive:
                     self.ledger.notify(o["from"], f"{self._label(o['to'])} did not buy {o['item']} ({o['id']}).")
         self.ledger.set_world("fertility", economy.drift_fertility(w.fertility, r, self.rng, c.work), reason="drift")
+        self._check_saved()
         self._round_summary()
 
     def _resolve_work(self) -> None:
@@ -626,7 +725,7 @@ class Village:
             if income:
                 self.ledger.set_world("energy", w.energy - income, reason="income")
         to_pool = 0.0
-        if self.tontine:
+        if self.commons:
             to_pool = income * governance.setting(w.rules, "pool_income_share")
             if to_pool:
                 self.ledger.adjust_pool(to_pool, reason="income share")
@@ -820,10 +919,10 @@ class Village:
             self.ledger.emit("bond", agents=[a_id, p_id])
             self.ledger.announce(f"{a.label()} and {p.label()} have bonded.")
 
-    # ------------------------------------------------------------------ the council (Arm B)
+    # ------------------------------------------------------------------ the council (the commons)
     def governance_due(self) -> bool:
         r = self.world.round
-        return self.tontine and r % self.cfg.tontine.term_length == 0 and bool(self.world.living())
+        return self.commons and r % self.cfg.tontine.term_length == 0 and bool(self.world.living())
 
     def council(self) -> list[str]:
         """The healthiest living villagers, ties broken by lot."""
@@ -935,7 +1034,8 @@ class Village:
         self.ledger.emit("round_end", alive=len(living), births_total=sum(1 for a in w.agents.values()) - self.cfg.population,
                          deaths_total=sum(1 for a in w.agents.values() if not a.alive),
                          mean_health=math.fsum(a.health for a in living) / len(living) if living else 0.0,
-                         stored_energy=math.fsum(a.energy for a in living), items=len(w.items), pool=w.pool)
+                         stored_energy=math.fsum(a.energy for a in living), items=len(w.items), pool=w.pool,
+                         world_energy=w.energy, effort=w.effort)
 
     def finished(self) -> bool:
         return not self.world.living()

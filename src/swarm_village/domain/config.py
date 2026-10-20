@@ -138,8 +138,33 @@ class TontineConfig:
 
 
 @dataclass(frozen=True)
+class CommonsConfig:
+    """Run 7 (Vaughan, 2026-10-20): what both arms share when enabled, so that the control differs from
+    Arm B only in selection. With it on, the control arm also has the pool, a button that feeds it, the
+    world store, the rule book and the council; their settings stay in TontineConfig (term_length,
+    pool_spoilage, button_min and button_max, council_size, max_rule_chars, world_energy). Arm B always
+    has them. Also here: reveals announced to everyone, and exploring for and tapping the larger store
+    (docs/proposal-explore.md, design C)."""
+
+    enabled: bool = False
+    public_reveals: tuple[int, ...] = ()  # the rounds at which the reveals (domain/world_info.py) are announced, in order
+    explore: bool = False  # the explore and tap actions, and the larger store
+    explore_cost: float = 5.0
+    explore_accident_factor: float = 2.0  # an explorer's accident chance is multiplied by this, that round
+    find_base: float = 0.2  # exploring the right direction finds the store with chance base + memory x per_memory ...
+    find_per_memory: float = 0.002
+    find_max: float = 0.8  # ... at most this
+    tap_cost: float = 10.0
+    tap_effort: float = 10.0
+    tap_target: float = 600.0  # effort needed, from at least min_tappers different villagers, with a plan in force
+    min_tappers: int = 4
+    store_bonus: float = 100000.0  # added to the world store when the world is saved
+    rounds_after_saved: int = 5  # the run pauses this many rounds after the world is saved (0: it runs on)
+
+
+@dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v5"
+    version: str = "v6"
     show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
@@ -161,11 +186,17 @@ class RunConfig:
     perturbation: PerturbationConfig = field(default_factory=PerturbationConfig)
     control: ControlConfig = field(default_factory=ControlConfig)
     tontine: TontineConfig = field(default_factory=TontineConfig)
+    commons: CommonsConfig = field(default_factory=CommonsConfig)
     prompt: PromptConfig = field(default_factory=PromptConfig)
     runtime: dict[str, Any] = field(default_factory=dict)  # which AgentRuntime adapter, and its settings
     pricing: dict[str, Any] = field(default_factory=dict)
     log_prompts: bool = False  # write every rendered prompt into the tap (Milestone 2)
     snapshot_every: int = 0  # write a world snapshot every N rounds (0: final only)
+
+    @property
+    def has_commons(self) -> bool:
+        """The pool, the button feeding it, the world store, the rule book and the council."""
+        return self.arm is Arm.TONTINE or self.commons.enabled
 
     def validate(self) -> None:
         if self.rounds < 1:
@@ -194,7 +225,17 @@ class RunConfig:
                 raise ValueError("tontine.heirs must be family, partner or partner_and_family")
             if t.cull_mode not in ("fixed", "scarcity"):
                 raise ValueError("tontine.cull_mode must be fixed or scarcity")
+        if self.has_commons:
+            t, m = self.tontine, self.commons
             if t.council_size < 1:
                 raise ValueError("tontine.council_size must be at least 1")
             if t.term_length != self.goal_every:
                 raise ValueError("goal_every must equal tontine.term_length (goals are set each term)")
+            if list(m.public_reveals) != sorted(set(m.public_reveals)) or any(r < 1 for r in m.public_reveals):
+                raise ValueError("commons.public_reveals must be distinct rounds from 1, in order")
+            if len(m.public_reveals) > 6:
+                raise ValueError("commons.public_reveals has six reveals to schedule at most")
+            if m.explore and not (0 <= m.find_base <= m.find_max <= 1 and m.min_tappers >= 1 and m.tap_target > 0):
+                raise ValueError("commons: need 0 <= find_base <= find_max <= 1, min_tappers >= 1 and tap_target > 0")
+        elif self.commons.public_reveals or self.commons.explore:
+            raise ValueError("commons.public_reveals and commons.explore need the commons (commons.enabled, or Arm B)")

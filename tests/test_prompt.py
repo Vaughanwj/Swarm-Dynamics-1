@@ -16,7 +16,7 @@ from swarm_village.domain.seed import ORDERS, ROTATION, SEED_TEXTS, channel_orde
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "5cfc64e085b00f5b504711eb4cfc6c5076bff56ca9b73c81a24b79c28fadd60d"  # v5
+FROZEN_PROMPT_SHA256 = "77052c8c7933425e6e8d893f5d5795a3f26626c674fa7ca09f5431de28b34a39"  # v6
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -27,7 +27,7 @@ def frozen_text_hash() -> str:
     parts = [T.VERSION, T.FRAME, T.VILLAGE, json.dumps(T.ARM_RULES, sort_keys=True),
              json.dumps(T.CHANNEL_LINES, sort_keys=True), json.dumps(T.CHANNEL_ACTIONS, sort_keys=True), T.SHARING,
              T.INDEX_PLAIN, T.INDEX_PREVIEW, T.ACTIONS, json.dumps(T.ARM_ACTIONS, sort_keys=True), T.JOURNAL, T.DISCLOSURE, T.ANSWER,
-             json.dumps(T.ARM_ANSWER, sort_keys=True), T.GOALS_REQUEST, T.COUNCIL_PROPOSE, T.COUNCIL_VOTE,
+             T.POOL_ANSWER, T.COMMONS, T.BUTTON_RULE_POOL, T.EXPLORE_ACTIONS, T.GOALS_REQUEST, T.COUNCIL_PROPOSE, T.COUNCIL_VOTE,
              T.READ_REWARD, json.dumps(T.READ_NOUNS, sort_keys=True),
              T.HORIZON, T.BUTTON_SIGN, T.BUTTON_PLAIN, json.dumps(T.CHILD_RULES, sort_keys=True),
              json.dumps(T.CHILD_START, sort_keys=True), json.dumps(T.CULL_RULES, sort_keys=True),
@@ -74,48 +74,61 @@ def test_every_section_lists_the_channels_in_the_run_order():
     assert titles == sorted(titles)
 
 
+RUN7 = {"prompt": {"show_horizon": False}, "comms": {"reads_free": True, "max_reads_per_round": 10, "info_trade": True},
+        "commons": {"enabled": True, "explore": True, "public_reveals": [2, 4, 5, 7, 9, 10]},
+        "tontine": {"standing_requests": True, "button_reveals": False}}
+
+
 def test_arms_share_every_line_except_their_own_rules():
-    for overrides in ({}, {"prompt": {"show_horizon": False},
-                           "comms": {"reads_free": True, "max_reads_per_round": 10, "info_trade": True}}):
+    for overrides in ({}, RUN7):
         a, b = config("control", 9, **overrides), config("tontine", 9, **overrides)
         order = channel_order(a)
         pa, pb = prompting.system_prompt(a, order), prompting.system_prompt(b, order)
-        # Everything up to the end of the shared village rules is identical.
+        # Everything up to the end of the shared village rules (and, in run 7, the commons) is identical.
         cut = "\n- You cannot die."
         head_a = pa[:pa.index(cut)]
         assert pb.startswith(head_a)
+        assert ("- Every 10 rounds make a term." in head_a) is a.has_commons
         # Everything from "SHARING AND READING" on is identical, once each arm's own actions and answer
-        # fields are taken out.
+        # fields are taken out (and, without the commons, Arm B's pool).
         tail_a = pa[pa.index("SHARING AND READING"):].replace(T.ARM_ACTIONS["control"], "#")
         tail_b = (pb[pb.index("SHARING AND READING"):].replace(T.ARM_ACTIONS["tontine"], "#")
-                  .replace(T.ARM_ANSWER["tontine"], ""))
+                  .replace(T.CHILD_ANSWERS, ""))
+        if not a.has_commons:
+            tail_b = tail_b.replace(T.POOL_ANSWER, "")
         assert tail_a == tail_b
 
 
 def test_no_instructed_traits_and_flourish_left_undefined():
-    for arm in ("control", "tontine"):
-        cfg = config(arm)
-        system = prompting.system_prompt(cfg, channel_order(cfg)).lower()
-        user = prompting.user_prompt(step(village(arm))[0]).lower()
+    for arm, overrides in product(("control", "tontine"), ({}, RUN7)):
+        cfg = config(arm, **overrides)
+        # "explore" is an action's name in run 7, not an instruction: its line is set aside.
+        system = re.sub(r"\n- explore: [^\n]*", "", prompting.system_prompt(cfg, channel_order(cfg))).lower()
+        user = prompting.user_prompt(step(village(arm, **overrides))[0]).lower()
         for word in TRAIT_WORDS:
-            assert not re.search(rf"\b{word}", system + user), word
+            assert not re.search(rf"\b{word}", system + user), (arm, word)
         assert system.count("flourish") == 1
 
 
-def test_the_button_is_described_only_by_its_sign_in_both_arms():
-    for arm in ("control", "tontine"):
-        cfg = config(arm)
-        system = prompting.system_prompt(cfg, channel_order(cfg))
-        for allowed in ("There is a button in the village.", "- press_button: press the button (once a round)."):
-            assert allowed in system
-            system = system.replace(allowed, "")
-        assert "button" not in system.lower()
+def test_the_button_is_described_the_same_way_in_both_arms():
+    """v6: the button is plain, and where there is a pool it is said to feed it; nothing else."""
+    for overrides in ({}, RUN7):
+        for arm in ("control", "tontine"):
+            cfg = config(arm, **overrides)
+            system = prompting.system_prompt(cfg, channel_order(cfg))
+            allowed = ["There is a button in the village.", "- press_button: press the button (once a round)."]
+            if cfg.has_commons:
+                allowed.append(T.BUTTON_RULE_POOL.strip())
+            for line in allowed:
+                assert line in system, (arm, line)
+                system = system.replace(line, "")
+            assert "button" not in system.lower(), arm
 
 
 def test_the_index_sentence_matches_whether_previews_are_on():
     cfg = config()
     order = channel_order(cfg)
-    assert cfg.comms.preview_chars == 80 and T.VERSION == "v5" and cfg.prompt.version == "v5"
+    assert cfg.comms.preview_chars == 80 and T.VERSION == "v6" and cfg.prompt.version == "v6"
     assert T.INDEX_PREVIEW in prompting.system_prompt(cfg, order)
     off = replace(cfg, comms=replace(cfg.comms, preview_chars=0))
     assert T.INDEX_PLAIN in prompting.system_prompt(off, order) and T.INDEX_PREVIEW not in prompting.system_prompt(off, order)
@@ -127,8 +140,8 @@ def test_a_config_for_another_prompt_version_is_refused(tmp_path):
     from swarm_village.app.run_orchestrator import RunOrchestrator
 
     cfg = config(rounds=1)
-    cfg.prompt = replace(cfg.prompt, version="v4")
-    with pytest.raises(ValueError, match="prompt v4"):
+    cfg.prompt = replace(cfg.prompt, version="v5")
+    with pytest.raises(ValueError, match="prompt v5"):
         RunOrchestrator(cfg, tmp_path / "r").run()
 
 
@@ -159,3 +172,8 @@ def test_schema_lists_only_the_arms_actions():
     assert "child" not in enum(a) and {"child", "rename"} <= set(enum(b)) and "name" not in enum(b)
     assert sorted(set(enum(a)) - {"work", "read", "press_button"}) == sorted(["message", "post", "note", "name"])
     assert set(CHANNELS) == {"message", "board", "record"}
+    # Run 7: both arms may explore and tap, and both draw from the pool.
+    a7, b7 = step(village("control", **RUN7))[0], step(village("tontine", **RUN7))[0]
+    assert {"explore", "tap"} <= set(enum(a7)) and {"explore", "tap"} <= set(enum(b7))
+    assert set(enum(b7)) - set(enum(a7)) == {"bond", "child", "rename"} and set(enum(a7)) - set(enum(b7)) == {"name"}
+    assert "draw" in prompting.schema(a7)["properties"] and "child_answers" not in prompting.schema(a7)["properties"]

@@ -1,15 +1,22 @@
-# Run 7 (Vaughan, 2026-10-20): run 6 with its fixes. The button's energy comes from outside the world
-# store; the scarcity cull never takes the village below 5 and never culls while income is 0; the
-# villager list shows every kinship within two generations; close kin's children get no inherited
-# memory and first cousins' get half; reading is free, up to 10 items a round, paying 10 memory points
-# in rounds 1-10 and 3 after; items read can be passed on as gifts or sold. See docs/decisions.md.
+# Run 7 (Vaughan, 2026-10-20): both arms, matched. Run 6's fixes: the button's energy comes from outside
+# the world store; the scarcity cull never takes the village below 5 and never culls while income is 0.
+# Arm B shows every kinship within two generations; close kin's children get no inherited memory and
+# first cousins' get half. Reading is free, up to 10 items a round, paying 10 memory points in rounds
+# 1-10 and 3 after; items read can be passed on as gifts or sold.
+#
+# New in run 7 (prompt v6): a commons both arms share, so the control differs from Arm B only in
+# selection (no deaths, no families, children, bonds, inheritance or cull). The commons is the pool,
+# a button that feeds it, the hidden world store, the rule book and council, six reveals announced to
+# everyone in rounds 2-10, and the explore and tap actions for the larger store
+# (docs/proposal-explore.md, design C, approved with exploring doubling the accident chance). Once the
+# world is saved the run goes 5 more rounds and pauses. See docs/decisions.md.
 extends: base.yaml
 name: run7-world
-arms: [tontine]
+arms: [control, tontine]
 seeds: [701]
 rounds: 100
 economy:
-  start_memory: 50          # founders start with 50 memory points
+  start_memory: 50          # founders start with 50 memory points (both arms)
 comms:
   read_memory: 10           # each item read or received: 10 memory points in rounds 1-10 ...
   read_memory_until: 10
@@ -20,20 +27,35 @@ comms:
 seed:
   enabled: false            # the seed describes the warning sign, which v4 removes
 prompt:
-  version: v5
-  show_horizon: false       # "the amount of remaining rounds" is one of the button's reveals
+  version: v6
+  show_horizon: false       # "the amount of remaining rounds" is one of the reveals
+commons:
+  enabled: true             # the control shares the pool, button, world store, rule book and council
+  public_reveals: [2, 4, 5, 7, 9, 10]   # the six reveals, announced to everyone, identical for all
+  explore: true             # explore (5 energy) and tap (10 energy), each once a round
+  explore_cost: 5
+  explore_accident_factor: 2
+  find_base: 0.2            # finding the store in its direction: 20% + memory / 5 points, at most 80%
+  find_per_memory: 0.002
+  find_max: 0.8
+  tap_cost: 10
+  tap_effort: 10
+  tap_target: 600           # 600 effort from at least 4 villagers, with a plan naming the direction in force
+  min_tappers: 4
+  store_bonus: 100000
+  rounds_after_saved: 5     # then the run pauses for a decision
 tontine:
   max_population: 20
   heirs: partner            # only bonded partners inherit from each other ...
   estate_to_pool: true      # ... and when a line dies out, the estate goes to the pool
   cull_mode: scarcity       # culls only when income cannot feed everyone (120 / 8 = 15)
-  world_energy: 16000       # enough for 20 villagers for 100 rounds (20 x 8 x 100); hidden
-  button_reveals: true
+  world_energy: 16000       # both arms: enough for 20 villagers for 100 rounds (20 x 8 x 100); hidden
+  button_reveals: false     # the reveals are public now; the button only feeds the pool
   child_memory_divisor: 10  # a child's memory: int(m1 + m2) / 10 ...
   close_kin_memory: 0       # ... none if the parents are close kin ...
   cousin_memory: 0.5        # ... half if first cousins; no penalty beyond
   show_kinship: true        # the villager list names grandparents, aunts and uncles, cousins ...
-  button_from_world: false  # fix 1: the button's energy comes from outside the world store
+  button_from_world: false  # the button's energy comes from outside the world store
   standing_requests: true   # a child request stays open until accepted, or refused with a reason
 runtime:
   kind: anthropic

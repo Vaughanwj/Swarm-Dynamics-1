@@ -1,6 +1,7 @@
 # Proposal: exploring for the larger store (for approval)
 
-**Status: draft, nothing built.**
+**Status: approved (design C) and built for run 7, with Vaughan's answers to the open questions; see
+[decisions.md](decisions.md), "Run 7, continued".**
 
 **The gap.** In run 6 the button told agents there is "another, much larger store of energy out there",
 that "options to locate and tap that store may save the world", and that a written plan "may save the

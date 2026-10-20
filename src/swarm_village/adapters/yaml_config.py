@@ -10,13 +10,13 @@ from typing import Any
 
 import yaml
 
-from ..domain.config import (Arm, CommsConfig, ControlConfig, EconomyConfig, JournalConfig, PerturbationConfig,
+from ..domain.config import (Arm, CommonsConfig, CommsConfig, ControlConfig, EconomyConfig, JournalConfig, PerturbationConfig,
                              PromptConfig, RunConfig, SeedConfig, TontineConfig, WorkConfig)
 
 SECTIONS = {
     "economy": EconomyConfig, "work": WorkConfig, "comms": CommsConfig, "journal": JournalConfig,
     "seed": SeedConfig, "perturbation": PerturbationConfig, "control": ControlConfig,
-    "tontine": TontineConfig, "prompt": PromptConfig,
+    "tontine": TontineConfig, "commons": CommonsConfig, "prompt": PromptConfig,
 }
 FIELD_FOR = {"seed": "seed_artifact"}
 SCALARS = ("rounds", "population", "goal_every", "log_prompts", "snapshot_every")

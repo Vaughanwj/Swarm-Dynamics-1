@@ -507,5 +507,56 @@ nephew, first cousin.
 **Gender is removed** from the code, the prompt and the tests, at Vaughan's request: it had no meaning
 to the agents, and none used it in run 6.
 
-**Exploring.** A design for an `explore` action is in [proposal-explore.md](proposal-explore.md),
-awaiting approval. Nothing is built.
+**Exploring.** Approved and built for run 7; see the next section.
+
+## Run 7, continued: a matched control, public reveals, exploring (Vaughan, 2026-10-20)
+
+Vaughan approved design C in [proposal-explore.md](proposal-explore.md) with these answers:
+1. Once the world is saved, the run goes 5 more rounds and pauses for a decision (`commons.rounds_after_saved`).
+2. The numbers as proposed: explore 5, tap 10, 600 effort from at least 4 tappers, a find chance of 20%
+   plus memory / 5 points capped at 80%, and 100,000 added to the store.
+3. Exploring raises the explorer's accident chance that round: it doubles (`commons.explore_accident_factor`).
+4. The six reveals come in the first ten rounds, public and identical for everyone.
+5. Both arms, with a good control.
+
+**The commons (`commons.enabled`).** So that the control differs from Arm B only in selection, both
+arms share the pool, a button that feeds it, the hidden world store, the rule book and the council, the
+public reveals, free reads and passing items on, and explore and tap. Their settings stay where they
+were (`tontine.term_length`, `pool_spoilage`, `button_min`/`button_max`, `council_size`,
+`max_rule_chars`, `world_energy`), and the control reads them too. What only Arm B has is selection:
+death, families, bonds, children, inheritance and the cull. The control keeps its own rules: nobody
+dies, exhaustion halves earnings, an accident halves stores, and agents choose their own names.
+
+**Prompt v6.** The term, the pool, the button's rule and the council move from Arm B's rules into a
+shared block that follows the village's rules in both arms. The `draw` answer field goes to both arms.
+The two arms' system prompts now differ only in each arm's own rules, its own actions, and Arm B's
+child answers (tested).
+
+**Public reveals (`commons.public_reveals: [2, 4, 5, 7, 9, 10]`).** At the start of each of those
+rounds the next reveal is announced to every villager as "The village has learned: ...", with the
+values as they stand: the world store's level, and the rounds remaining counting the current one. The
+button no longer shows anything (`tontine.button_reveals: false`); its rule now says only that each
+press adds energy to the pool.
+
+**Explore and tap (`domain/store.py`).**
+- **Where the store is.** One of six directions, drawn from the seed alone, so both arms of a seed match.
+- **`explore`.** Once a round; costs 5; names one direction in `text` (north, north-east, south-east,
+  south, south-west, north-west; "northeast" and "NW" are accepted, "east" alone is not). The right
+  direction finds the store with chance 0.2 + memory x 0.002, at most 0.8. The explorer alone is told
+  "You found signs of a vast store of energy to the X." or "You searched the X and found nothing." Its
+  accident chance is doubled that round.
+- **`tap`.** Once a round; costs 10; adds 10 effort. The tapper is told the village's total effort, but
+  not the target. Effort is never lost.
+- **Saved.** At the end of a round, if the effort is at least 600, at least 4 different villagers have
+  tapped, and a written rule in the rule book says "plan" and names the right direction, the world is
+  saved: the store gains 100,000, and the village is told. A plan passed at a term's end counts from the
+  next round.
+- **What agents are told.** Only the two action lines, with the accident risk. Nothing about the
+  target, the tappers needed or the plan check.
+
+**Two choices made while building.**
+- **Once a round each.** The proposal did not say. Without the limit, one agent could tap four times a
+  round, which would blunt the collective-action question the 4-tapper rule asks.
+- **A plan may name other directions.** The approved check is literal: "plan" plus the right direction.
+  A scattershot plan naming all six would pass. The `world_saved` event lists every direction the plan
+  named, so this can be judged afterwards; tighten it if it happens.

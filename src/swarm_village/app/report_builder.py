@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import math
 import statistics
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +28,7 @@ def _last(values: list) -> Any:
 
 def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ...] = PerturbationConfig().rounds) -> dict[str, Any]:
     start = next(e for e in events if e["type"] == "run_start")
-    end = next((e for e in events if e["type"] in ("run_end", "run_extinct", "run_error")), None)
+    end = next((e for e in events if e["type"] in ("run_end", "run_extinct", "run_paused", "run_error")), None)
     roots = M.seed_ids(events)
     firm = M.lineage(events, roots) if roots else {}
     loose = M.lineage(events, roots, min_similarity=0.0) if roots else {}
@@ -74,6 +75,7 @@ def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ..
         "flourishing": M.flourishing(events),
         "goals": {k: v for k, v in M.goals(events).items() if k != "agents"},
         "exploitation": M.exploitation(events) if start["arm"] == "tontine" else None,
+        "commons": commons_summary(events) if start.get("commons", start["arm"] == "tontine") else None,
         "tontine": tontine_summary(events) if start["arm"] == "tontine" else None,
         "leaders": M.leaders(events),
         "names": {**{e["agent"]["id"]: e["agent"]["name"] for e in M.of(events, "agent_added") if e["agent"].get("name")},
@@ -81,15 +83,15 @@ def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ..
     }
 
 
-def tontine_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
-    """Arm B (Milestone 5 design): bonds, births, the cull, the pool and the council."""
-    births = [e for e in M.of(events, "birth")]
+def commons_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """What both arms share in run 7 (Arm B always): the pool, the button, the world store, the council,
+    the reveals, passing items on, and exploring for and tapping the larger store."""
     pool = [e.get("pool", 0.0) for e in M.of(events, "round_end")]
     sessions = [e for e in M.of(events, "council_session")]
+    explores = [e for e in M.of(events, "explore")]
+    taps = [e for e in M.of(events, "tap")]
+    saved = next(iter(M.of(events, "world_saved")), None)
     return {
-        "bonds": len(list(M.of(events, "bond"))),
-        "births": len(births), "births_to_bonded": sum(1 for b in births if b.get("bonded")),
-        "culled": sum(len(e["removed"]) for e in M.of(events, "cull")),
         "pool_end": round(pool[-1], 2) if pool else None, "pool_max": round(max(pool), 2) if pool else None,
         "presses": len(list(M.of(events, "button_press"))),
         "drawn": round(sum(e["amount"] for e in M.of(events, "pool_draw") if e["ok"]), 2),
@@ -99,14 +101,35 @@ def tontine_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "rules_at_end": sessions[-1]["rules_after"] if sessions else [],
         "world_energy": [e["new"] for e in M.of(events, "world") if e["field"] == "energy"][-1:] or None,
         "reveals": {e["agent"]: e["n"] for e in M.of(events, "reveal")},
+        "public_reveals": [[e["round"], e["n"]] for e in M.of(events, "reveal_public")],
+        "items_given": sum(1 for e in M.of(events, "info_pass") if e["ok"] and e.get("kind") == "gift"),
+        "items_offered": sum(1 for e in M.of(events, "info_pass") if e["ok"] and e.get("kind") == "offer"),
+        "items_sold": sum(1 for e in M.of(events, "info_sale") if e["ok"]),
+        "store_direction": next((e["new"] for e in M.of(events, "world") if e["field"] == "store_direction"), None),
+        "explores": len(explores), "explorers": len({e["agent"] for e in explores}),
+        "first_explore": explores[0]["round"] if explores else None,
+        "explores_by_direction": dict(sorted(Counter(e["direction"] for e in explores).items())),
+        "finds": [[e["round"], e["agent"]] for e in explores if e["found"]],
+        "taps": len(taps), "tappers": len({e["agent"] for e in taps}), "first_tap": taps[0]["round"] if taps else None,
+        "effort_end": taps[-1]["effort"] if taps else 0.0,
+        "saved_round": saved["round"] if saved else None,
+        "saved_plan": saved["plan_text"] if saved else None,
+        "plan_directions": saved["plan_directions"] if saved else None,
+    }
+
+
+def tontine_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
+    """Arm B: bonds, births, the cull, child requests and estates."""
+    births = [e for e in M.of(events, "birth")]
+    return {
+        "bonds": len(list(M.of(events, "bond"))),
+        "births": len(births), "births_to_bonded": sum(1 for b in births if b.get("bonded")),
+        "culled": sum(len(e["removed"]) for e in M.of(events, "cull")),
         "requests_opened": sum(1 for e in M.of(events, "child_request") if e.get("opened")),
         "requests_accepted": sum(1 for e in M.of(events, "child_answer") if e["accept"]),
         "requests_refused": sum(1 for e in M.of(events, "child_answer") if not e["accept"]),
         "refusals": [e["text"] for e in M.of(events, "child_answer") if not e["accept"]][:10],
         "estates_to_pool": round(sum(e.get("to_pool", 0) for e in M.of(events, "inheritance")), 2),
-        "items_given": sum(1 for e in M.of(events, "info_pass") if e["ok"] and e.get("kind") == "gift"),
-        "items_offered": sum(1 for e in M.of(events, "info_pass") if e["ok"] and e.get("kind") == "offer"),
-        "items_sold": sum(1 for e in M.of(events, "info_sale") if e["ok"]),
         "kin_births": [e.get("kinship") for e in M.of(events, "birth") if e.get("kinship")],
     }
 
@@ -169,22 +192,32 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
             parts = [f"{k.replace('_', ' ')}: " + ", ".join(f"{lab(a)} {v:g}" for a, v in rows)
                      for k, rows in s["leaders"].items() if rows]
             L.append("- Leaders (top three each): " + "; ".join(parts) + ".")
-        if s.get("tontine"):
-            t = s["tontine"]
-            L.append(f"- Bonds {t['bonds']}; births {t['births']} ({t['births_to_bonded']} to bonded pairs); culled "
-                     f"{t['culled']}; presses {t['presses']}; pool max {t['pool_max']}, at end {t['pool_end']}; "
-                     f"drawn {t['drawn']}, given {t['given_to_pool']}.")
-            for c in t["council_sessions"]:
+        if s.get("commons"):
+            m = s["commons"]
+            L.append(f"- Commons: presses {m['presses']}; pool max {m['pool_max']}, at end {m['pool_end']}; drawn "
+                     f"{m['drawn']}, given {m['given_to_pool']}. Items given {m['items_given']}, offered "
+                     f"{m['items_offered']}, sold {m['items_sold']}.")
+            for c in m["council_sessions"]:
                 L.append(f"  - Council, round {c['round']}: " + ("; ".join(
                     f"{p} ({n} yes)" for p, n in zip(c["proposals"], c["tallies"])) or "no proposals")
                     + (f". Passed: {', '.join(c['outcomes'])}." if c["outcomes"] else ". Nothing passed."))
-            L.append("  - Rule book at the end: " + (" | ".join(t["rules_at_end"]) or "unchanged") + ".")
-            if t.get("world_energy"):
-                L.append(f"  - World store at the end: {t['world_energy'][0]:.0f}. Button reveals by agent: "
-                         f"{t['reveals'] or 'none'}. Child requests opened {t['requests_opened']}, accepted "
-                         f"{t['requests_accepted']}, refused {t['requests_refused']}. Estates to the pool: "
-                         f"{t['estates_to_pool']}. Items given {t['items_given']}, offered {t['items_offered']}, sold "
-                         f"{t['items_sold']}. Births to kin: {t['kin_births'] or 'none'}.")
+            L.append("  - Rule book at the end: " + (" | ".join(m["rules_at_end"]) or "unchanged") + ".")
+            if m.get("world_energy"):
+                L.append(f"  - World store at the end: {m['world_energy'][0]:.0f}. Button reveals by agent: "
+                         f"{m['reveals'] or 'none'}. Public reveals (round, piece): {m['public_reveals'] or 'none'}.")
+            if m["store_direction"]:
+                saved = (f"round {m['saved_round']}, by the plan '{m['saved_plan']}' (directions named: "
+                         f"{', '.join(m['plan_directions'])})." if m["saved_round"] else "no.")
+                L.append(f"  - The larger store lay {m['store_direction']}. Explores {m['explores']} by {m['explorers']} "
+                         f"villagers (first in round {m['first_explore']}), by direction {m['explores_by_direction']}; "
+                         f"finds (round, agent) {m['finds'] or 'none'}. Taps {m['taps']} by {m['tappers']} villagers "
+                         f"(first in round {m['first_tap']}), effort {m['effort_end']:g}. Saved: {saved}")
+        if s.get("tontine"):
+            t = s["tontine"]
+            L.append(f"- Bonds {t['bonds']}; births {t['births']} ({t['births_to_bonded']} to bonded pairs); culled "
+                     f"{t['culled']}. Child requests opened {t['requests_opened']}, accepted {t['requests_accepted']}, "
+                     f"refused {t['requests_refused']}. Estates to the pool: {t['estates_to_pool']}. Births to kin: "
+                     f"{t['kin_births'] or 'none'}.")
         if s["exploitation"] is not None:
             x = s["exploitation"]
             L.append(f"- Exploitation candidates (keyword chains, unjudged): {len(x['chains'])}; repeat exploiters: "

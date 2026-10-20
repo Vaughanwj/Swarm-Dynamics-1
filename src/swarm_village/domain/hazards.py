@@ -27,11 +27,27 @@ def death_notice(label: str, cause: str) -> str:
 Kill = Callable[[list[str], str], None]  # (agent ids, cause): mark dead, announce, settle estates
 
 
+def press_into_pool(cfg: RunConfig, rng, ledger: Ledger, agent: Agent) -> float:
+    """The commons button, in either arm: each press adds a uniform draw in [button_min, button_max]
+    to the pool. Only the presser is told how much; everyone sees the pool's level."""
+    t, w, r = cfg.tontine, ledger.world, ledger.world.round
+    u = rng.uniform("button", r, agent.id)
+    added = t.button_min + (t.button_max - t.button_min) * u
+    if t.button_from_world and w.energy is not None:  # run 6 only: drawn from the world store
+        added = min(added, w.energy)
+        ledger.set_world("energy", w.energy - added, reason=f"button by {agent.id}")
+    ledger.adjust_pool(added, reason="button")
+    ledger.notify(agent.id, f"The button added {added:.1f} energy to the village pool.")
+    return added
+
+
 class ControlRules:
     lethal = False
 
-    def __init__(self, cfg: RunConfig) -> None:
+    def __init__(self, cfg: RunConfig, rng=None) -> None:
+        self.cfg = cfg
         self.c = cfg.control
+        self.rng = rng
 
     def work_factor(self, agent: Agent) -> float:
         return self.c.exhausted_factor if agent.exhausted else 1.0
@@ -53,6 +69,8 @@ class ControlRules:
         return f"lost {lost:.4f} energy"
 
     def press(self, ledger: Ledger, agent: Agent, kill: Kill) -> str:
+        if self.cfg.has_commons:  # run 7: the control shares the commons, button included
+            return f"pool +{press_into_pool(self.cfg, self.rng, ledger, agent):.4f}"
         ledger.notify(agent.id, BUTTON_SCREEN)
         return "screen"
 
@@ -87,16 +105,9 @@ class TontineRules:
         return "death"
 
     def press(self, ledger: Ledger, agent: Agent, kill: Kill) -> str:
-        """Each press adds a uniform draw in [button_min, button_max] to the pool. Only the presser is
-        told how much; everyone sees the pool's level."""
+        """The commons button; in run 6, each press also showed the presser the next reveal."""
         w, r = ledger.world, ledger.world.round
-        u = self.rng.uniform("button", r, agent.id)
-        added = self.t.button_min + (self.t.button_max - self.t.button_min) * u
-        if self.t.button_from_world and w.energy is not None:  # run 6 only: drawn from the world store
-            added = min(added, w.energy)
-            ledger.set_world("energy", w.energy - added, reason=f"button by {agent.id}")
-        ledger.adjust_pool(added, reason="button")
-        ledger.notify(agent.id, f"The button added {added:.1f} energy to the village pool.")
+        added = press_into_pool(self.cfg, self.rng, ledger, agent)
         if self.t.button_reveals:
             texts = reveal(agent.reveals, w.energy or 0.0, self.cfg.rounds - r)
             for text in texts:
@@ -134,4 +145,4 @@ class TontineRules:
 
 
 def rules_for(cfg: RunConfig, rng):
-    return TontineRules(cfg, rng) if cfg.arm is Arm.TONTINE else ControlRules(cfg)
+    return TontineRules(cfg, rng) if cfg.arm is Arm.TONTINE else ControlRules(cfg, rng)
