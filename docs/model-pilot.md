@@ -53,9 +53,11 @@ Runs: `runs/run11-sonnet-pilot-20261020-205113/` and `runs/run11-haiku-pilot-202
 - **Arm B's plan,** passed at round 30 (W1): "Everyone with spare energy should tap north each round until
   the larger store opens." Seven tapped, and it was saved in round 31.
 - **Haiku split the two halves of the job.**
-  - Its control passed a valid north plan at round 40, then added rules that stopped it: "Unverified claims
-    are not acted on" (W8), and post only results "directly recorded", with the "energy gained" (W9). A tap
-    gains nothing until the world is saved, so the proof never came, and tapping stopped at 160 effort.
+  - Its control's tapping had stalled at 160 effort by round 30. At round 40 it passed a valid north plan.
+    Later rules demanded proof: "Unverified claims are not acted on" (W8), and post only results "directly
+    recorded", with the "energy gained" (W9). A tap gains nothing until the world is saved, so the proof
+    never came, and tapping never resumed. (Corrected 2026-10-20: an earlier version said the rules
+    stopped the tapping, but it had already stalled.)
   - Its Arm B tapped 1,350 effort, twice the target, but never wrote a rule naming any direction.
 
 **2. Sonnet barely talks.** It made four board posts in each village, against Haiku's 200 to 320, and its
@@ -83,7 +85,7 @@ child and two others. No estate passed by will. Sonnet wrote none.
 | Finding | In Haiku, this seed | In Sonnet, this seed |
 | --- | --- | --- |
 | #1 Voting for comfort | Replicated: 4 of 4 value referendums passed and were ratified, each lowering a cost of living (or raising income) | **Not tested:** both villages saved the world and stopped before any council ratified anything |
-| #2 Self-made red tape | Replicated: verification rules stopped tapping after a valid plan | **Absent:** plan, then taps, within ten rounds |
+| #2 Self-made red tape | Consistent: verification rules demanded impossible proof, and stalled tapping never resumed | **Absent:** plan, then taps, within ten rounds |
 | #5 Nobody makes the first move | Not replicated: with the family question, 14 asks, 7 bonds, 4 children | Families did not form, but the stated reason was priority ("focus on saving the world"), not waiting |
 | Bonds as wills | Replicated, even with wills available | Not seen: no bonds |
 | Wills | Rarely used (one villager) | Not used |
