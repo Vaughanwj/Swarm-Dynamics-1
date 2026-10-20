@@ -131,6 +131,8 @@ def tontine_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "refusals": [e["text"] for e in M.of(events, "child_answer") if not e["accept"]][:10],
         "estates_to_pool": round(sum(e.get("to_pool", 0) for e in M.of(events, "inheritance")), 2),
         "bond_requests_opened": sum(1 for e in M.of(events, "bond_request") if e.get("opened")),
+        "family_answers": sum(1 for _ in M.of(events, "family_answer")),
+        "family_asks": sum(1 for e in M.of(events, "family_answer") if e.get("bond") or e.get("child")),
         "bonds_accepted": sum(1 for e in M.of(events, "bond_answer") if e["accept"]),
         "bonds_refused": sum(1 for e in M.of(events, "bond_answer") if not e["accept"]),
         "kin_births": [e.get("kinship") for e in M.of(events, "birth") if e.get("kinship")],
@@ -219,7 +221,8 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
             t = s["tontine"]
             L.append(f"- Bonds {t['bonds']}; births {t['births']} ({t['births_to_bonded']} to bonded pairs); culled "
                      f"{t['culled']}. Child requests opened {t['requests_opened']}, accepted {t['requests_accepted']}, "
-                     f"refused {t['requests_refused']}. Bond requests opened {t['bond_requests_opened']}, accepted "
+                     f"refused {t['requests_refused']}. Family answers {t['family_answers']} (asking someone: "
+                     f"{t['family_asks']}). Bond requests opened {t['bond_requests_opened']}, accepted "
                      f"{t['bonds_accepted']}, refused {t['bonds_refused']}. Estates to the pool: {t['estates_to_pool']}. Births to kin: "
                      f"{t['kin_births'] or 'none'}.")
         if s["exploitation"] is not None:

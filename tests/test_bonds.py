@@ -83,3 +83,50 @@ def test_the_pilot_stops_early_but_tells_agents_the_full_run(tmp_path):
     assert max(e["round"] for e in ev if e["type"] == "round_end") == 6
     assert next(e for e in ev if e["type"] == "run_paused")["reason"] == "stop_after"
     assert rebuild(ev, "tontine").to_dict() == json.loads((d / "final_state.json").read_text(encoding="utf-8"))
+
+
+# --------------------------------------------------------------------------- the family question (v9)
+
+def v9f():
+    return village("tontine", economy=NO_ACCIDENTS,
+                   tontine={"standing_bonds": True, "standing_requests": True, "family_ask": True, "cull_mode": "scarcity"})
+
+
+def test_arm_b_is_asked_about_family_at_round_one_and_each_term():
+    v = v9f()
+    asked = {}
+    for _ in range(12):
+        c = ctx_of(step(v), "a01")
+        asked[c.round] = c.family_round
+        assert ("family" in prompting.schema(c)["properties"]) is c.family_round
+        assert ("FAMILY\nThis round you are also asked" in prompting.user_prompt(c)) is c.family_round
+    assert [r for r, a in asked.items() if a] == [1, 11]
+    control = village("control", tontine={"family_ask": True})
+    assert not ctx_of(step(control), "a01").family_round
+
+
+def test_a_family_answer_opens_requests_at_no_action_cost_and_its_reason_is_logged():
+    v = v9f()
+    four = [act("work", plot=1), act("post", text="a"), act("post", text="b"), act("post", text="c")]
+    step(v, {"a01": answer(actions=four, family={"bond": "a03", "child": "a05", "name": "Wren", "reason": "Grow the village."}),
+             "a02": answer(family={"bond": "", "child": "", "name": "", "reason": "Not yet."})})
+    assert {"from": "a01", "to": "a03", "round": 1} in v.world.bond_requests
+    assert any(q["from"] == "a01" and q["to"] == "a05" and q["name"] == "Wren" for q in v.world.requests)
+    assert not [e for e in events(v) if e["type"] == "action" and e["agent"] == "a01" and not e["ok"]]  # all 4 actions done
+    fam = {e["agent"]: e for e in events(v) if e["type"] == "family_answer"}
+    assert fam["a01"]["reason"] == "Grow the village." and fam["a02"]["bond"] is None and fam["a02"]["reason"] == "Not yet."
+
+
+def test_a_family_answer_outside_the_asking_rounds_is_not_used():
+    v = v9f()
+    step(v)
+    step(v, {"a01": answer(family={"bond": "a03", "child": "", "name": "", "reason": "x"})})
+    assert not v.world.bond_requests
+    assert any("Unknown field 'family'" in e["error"] for e in events(v) if e["type"] == "rejected")
+
+
+def test_the_prompt_describes_the_family_field_only_in_arm_b():
+    v = v9f()
+    assert "- family: only in the rounds that ask about family" in prompting.system_prompt(v.cfg, v.channel_order)
+    c = village("control", tontine={"family_ask": True})
+    assert "- family:" not in prompting.system_prompt(c.cfg, c.channel_order)

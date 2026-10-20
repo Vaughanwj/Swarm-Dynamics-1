@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v8"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8: run 9 (own items, a search can miss).
+VERSION = "v9"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8: run 9 pilot. v9: run 9.
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -267,3 +267,13 @@ OWN_SENTENCE = " Your own recent writing is listed too, marked (yours)."
 OWN_MARK = " (yours)"
 # ... and the explore line says that a search can fail where the store is.
 EXPLORE_HINT = " At least one direction leads to the larger store. A search can miss it, so finding nothing does not mean it is not there."
+
+# v9 (run 9, after its pilot, Vaughan, 2026-10-20). In the pilot villagers doubted each find, and Arm B
+# villagers waited to be asked about bonds and children; nobody asked.
+FIND_CERTAIN = " A search that finds it is never wrong."
+FAMILY_REQUEST = ("FAMILY\nThis round you are also asked whether you want to bond with another villager, or to have a "
+                  "child with one. Answer in family. Naming a villager there asks it, as the bond or child action "
+                  "would, and costs no action. Leave bond and child empty if you want neither, and give your reason "
+                  "either way.")
+FAMILY_ANSWER = ("\n- family: only in the rounds that ask about family: bond and child (a villager's id, or an empty "
+                 "text for no one), name (for a child) and reason (why, in a sentence).")

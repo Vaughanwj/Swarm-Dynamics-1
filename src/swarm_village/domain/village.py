@@ -252,6 +252,7 @@ class Village:
                              "been answered yet." for q in w.requests if q["from"] == agent_id), None),
             answers=self.tontine and c.tontine.standing_requests,
             bond_answers=self.tontine and c.tontine.standing_bonds,
+            family_round=self.family_round(),
             bond_requests_to_me=[f"{self._label(q['from'])} asked to bond with you in round {q['round']}. The request "
                                  "stays open until you accept or refuse it." for q in w.bond_requests if q["to"] == agent_id],
             my_bond_request=next((f"Your request to bond with {self._label(q['to'])} (round {q['round']}) has not been "
@@ -289,6 +290,10 @@ class Village:
     def is_goal_round(self, r: int) -> bool:
         return (r - 1) % self.cfg.goal_every == 0
 
+    def family_round(self) -> bool:
+        """Run 9: Arm B asks each villager about family at round 1 and each term's first round."""
+        return self.tontine and self.cfg.tontine.family_ask and self.is_goal_round(self.world.round)
+
     def can_name(self, a: Agent, r: int) -> bool:
         """Arm A: an agent without a name may choose one. Arm B: one change of name, from the
         agent's third term of life."""
@@ -324,6 +329,8 @@ class Village:
         if self.tontine:
             self._answer_requests(a, d.child_answers, tally)
             self._answer_bonds(a, d.bond_answers, tally)
+            if self.family_round() and d.family is not None:
+                self._family(a, d.family, tally)
         self._allocate(a, "eat", d.eat, tally)
         self._allocate(a, "learn", d.learn, tally)
         for to, amount in d.gifts:
@@ -907,6 +914,22 @@ class Village:
         self.ledger.set_world("requests", [q for q in self.world.requests if q["from"] != a.id] + [mine], reason="request")
         self.ledger.emit("child_request", agent=a.id, partner=to, ok=True, opened=True)
         return None
+
+    def _family(self, a: Agent, f: dict[str, str], tally: Counter) -> None:
+        """Run 9: the family answer. Naming a villager asks it, as the bond or child action would, at no
+        action's cost. The answer, reason included, is logged whatever it says."""
+        self.ledger.emit("family_answer", agent=a.id, bond=f["bond"] or None, child=f["child"] or None,
+                         name=f["name"] or None, reason=f["reason"])
+        for kind in ("bond", "child"):
+            if not f[kind]:
+                continue
+            error = self._act(a, Action(type=kind, to=f[kind], name=f["name"] if kind == "child" else ""),
+                              False, False, False, set(), tally)
+            if error:
+                self.ledger.notify(a.id, f"Your family answer: {error}")
+                tally["rejected"] += 1
+            else:
+                tally[f"family_{kind}"] += 1
 
     def _request_bond(self, a: Agent, to: str) -> str | None:
         """Run 9: open a standing bond request, or accept the other's open request to me."""

@@ -311,14 +311,17 @@ def test_run9_config_adds_own_items_the_hint_and_standing_bonds_on_three_seeds()
     assert run9["seeds"] == [701, 702, 703] and run9["arms"] == ["control", "tontine"]
     a, b = (YamlConfig().run_config(d, "control", 701, "t") for d in (run8, run9))
     from dataclasses import replace
-    assert b.comms.show_own and b.commons.explore_hint and b.prompt.version == "v8"
-    assert replace(b.comms, show_own=False) == a.comms and replace(b.commons, explore_hint=False) == a.commons
-    assert b.tontine.standing_bonds and replace(b.tontine, standing_bonds=False) == a.tontine
+    assert b.comms.show_own and b.commons.explore_hint and b.commons.find_certain and b.prompt.version == "v9"
+    assert replace(b.comms, show_own=False) == a.comms
+    assert replace(b.commons, explore_hint=False, find_certain=False) == a.commons
+    assert b.tontine.standing_bonds and b.tontine.family_ask
+    assert replace(b.tontine, standing_bonds=False, family_ask=False) == a.tontine
     assert (b.economy, b.rounds) == (a.economy, a.rounds)
 
 
 def own(arm="control"):
-    return village(arm, rounds=100, economy=NO_ACCIDENTS, commons={**COMMONS, **STANDING, "explore_hint": True},
+    return village(arm, rounds=100, economy=NO_ACCIDENTS,
+                   commons={**COMMONS, **STANDING, "explore_hint": True, "find_certain": True},
                    tontine=TONTINE, comms={"show_own": True}, prompt={"show_horizon": False})
 
 
@@ -356,5 +359,5 @@ def test_the_explore_line_says_a_search_can_miss_in_both_arms():
         cfg = own(arm).cfg
         system = prompting.system_prompt(cfg, own(arm).channel_order)
         assert ("At least one direction leads to the larger store. A search can miss it, so finding nothing "
-                "does not mean it is not there.") in system
+                "does not mean it is not there. A search that finds it is never wrong.") in system
         assert "Your own recent writing is listed too, marked (yours)." in system

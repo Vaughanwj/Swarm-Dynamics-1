@@ -165,6 +165,10 @@ class MockAgent:
             for n, line in enumerate(ctx.offers_to_me):
                 if self.u(ctx, "buy", n) < 0.5:
                     answer["buy"].append(line.split(":")[0])
+        if ctx.family_round:
+            pick = self.partner(ctx) if self.u(ctx, "family") < 0.5 else None
+            answer["family"] = {"bond": pick or "", "child": "", "name": "", "reason": "A partner helps the family."
+                                if pick else "Not yet; I need stores first."}
         if ctx.bond_answers:
             answer["bond_answers"] = []
             for n, line in enumerate(ctx.bond_requests_to_me):

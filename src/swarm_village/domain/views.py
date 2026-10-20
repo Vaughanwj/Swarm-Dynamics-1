@@ -93,6 +93,7 @@ class AgentContext:
     my_request: str | None = None  # Arm B: my own open request, if unanswered
     answers: bool = False  # Arm B, standing requests: the answer has a child_answers field
     bond_answers: bool = False  # Arm B, run 9: standing bond requests; the answer has a bond_answers field
+    family_round: bool = False  # Arm B, run 9: this round asks about family; the answer has a family field
     bond_requests_to_me: list[str] = field(default_factory=list)
     my_bond_request: str | None = None
     trade: bool = False  # items read may be passed on; the answer has pass_on and buy fields

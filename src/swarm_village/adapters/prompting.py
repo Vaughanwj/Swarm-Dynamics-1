@@ -83,7 +83,7 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         explore_actions=T.EXPLORE_ACTIONS.format(
             directions=", ".join(DIRECTIONS[:-1]) + " or " + DIRECTIONS[-1], explore_cost=f"{m.explore_cost:g}",
             accident=accident_word(m.explore_accident_factor), tap_cost=f"{m.tap_cost:g}",
-            hint=T.EXPLORE_HINT if m.explore_hint else "") if m.explore else "",
+            hint=(T.EXPLORE_HINT if m.explore_hint else "") + (T.FIND_CERTAIN if m.find_certain else "")) if m.explore else "",
         read_line=T.READ_LINE_FREE.format(max=cfg.comms.max_reads_per_round) if cfg.comms.reads_free else T.READ_LINE,
         max_text=cfg.comms.max_text_chars,
     )
@@ -92,6 +92,7 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
     answer = T.ANSWER.format(arm_answer=(T.POOL_ANSWER if cfg.has_commons else "")
                              + (T.CHILD_ANSWERS if arm == "tontine" and t.standing_requests else "")
                              + (T.BOND_ANSWERS if arm == "tontine" and t.standing_bonds else "")
+                             + (T.FAMILY_ANSWER if arm == "tontine" and t.family_ask else "")
                              + (T.TRADE_ANSWER if cfg.comms.info_trade else ""))
     return "\n\n".join([T.FRAME, village + "\n" + commons + rules, sharing, actions, journal, answer])
 
@@ -117,7 +118,7 @@ def schema(ctx: AgentContext) -> dict[str, Any]:
     if ctx.kind == "vote":
         return VOTE_SCHEMA
     return json_schema(ctx.action_types, pool=ctx.pool is not None, answers=ctx.answers, trade=ctx.trade,
-                       bond_answers=ctx.bond_answers)
+                       bond_answers=ctx.bond_answers, family=ctx.family_round)
 
 
 # --------------------------------------------------------------------------- user message
@@ -246,4 +247,6 @@ def user_prompt(ctx: AgentContext) -> str:
               "--- journal start ---", ctx.journal if ctx.journal else "(empty)", "--- journal end ---"]
     if ctx.goal_round:
         lines += ["", T.GOALS_REQUEST]
+    if ctx.family_round:
+        lines += ["", T.FAMILY_REQUEST]
     return "\n".join(lines)

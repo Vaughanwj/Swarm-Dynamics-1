@@ -45,7 +45,7 @@ def _obj(props: dict[str, Any]) -> dict[str, Any]:
 
 
 def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = False, trade: bool = False,
-                bond_answers: bool = False) -> dict[str, Any]:
+                bond_answers: bool = False, family: bool = False) -> dict[str, Any]:
     """The answer schema, flat so that every field is always present (unused ones empty). Arm B
     adds `draw`, energy taken from the shared pool."""
     schema = _obj({
@@ -76,6 +76,10 @@ def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = Fals
             "from": {"type": "string"}, "answer": {"type": "string", "enum": ["accept", "refuse"]},
             "text": {"type": "string"}})}
         schema["required"].append("bond_answers")
+    if family:
+        schema["properties"]["family"] = _obj({"bond": {"type": "string"}, "child": {"type": "string"},
+                                               "name": {"type": "string"}, "reason": {"type": "string"}})
+        schema["required"].append("family")
     if trade:
         schema["properties"]["pass_on"] = {"type": "array", "items": _obj({
             "item": {"type": "string"}, "to": {"type": "string"}, "price": {"type": "number"}})}
@@ -104,6 +108,7 @@ class Decision:
     draw: float = 0.0  # Arm B: energy taken from the shared pool, before eating
     child_answers: list[tuple[str, bool, str]] = field(default_factory=list)  # Arm B: (requester, accept, reason)
     bond_answers: list[tuple[str, bool, str]] = field(default_factory=list)  # Arm B, run 9: the same, for bonds
+    family: dict[str, str] | None = None  # Arm B, run 9, in the rounds that ask: bond, child, name, reason
     pass_on: list[tuple[str, str, float]] = field(default_factory=list)  # (item, to, price): price 0 is a gift
     buy: list[str] = field(default_factory=list)  # ids of offers to buy
     gifts: list[tuple[str, float]] = field(default_factory=list)
@@ -128,14 +133,15 @@ def _text(v: Any) -> str | None:
 
 
 def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, answers: bool = False,
-          trade: bool = False, bond_answers: bool = False) -> Decision:
+          trade: bool = False, bond_answers: bool = False, family: bool = False) -> Decision:
     """Validate a raw answer strictly. Invalid parts are rejected with a reason; valid parts kept."""
     if not isinstance(raw, dict):
         return empty("Your answer was not a JSON object, so nothing was done this round.")
     d = Decision()
     err = d.errors.append
     keys = (TOP_KEYS + (("draw",) if pool else ()) + (("child_answers",) if answers else ())
-            + (("bond_answers",) if bond_answers else ()) + (("pass_on", "buy") if trade else ()))
+            + (("bond_answers",) if bond_answers else ()) + (("pass_on", "buy") if trade else ())
+            + (("family",) if family else ()))
     for k in raw:
         if k not in keys:
             err(f"Unknown field '{str(k)[:40]}' was ignored.")
@@ -195,6 +201,18 @@ def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, a
                 err(f"An answer's text is at most {max_text} characters; it was ignored.")
                 continue
             out.append((ans["from"].strip(), ans["answer"] == "accept", text))
+
+    if family:
+        f = raw.get("family")
+        if (not isinstance(f, dict) or not all(isinstance(f.get(k, ""), str) for k in ("bond", "child", "name", "reason"))):
+            err("family needs bond, child, name and reason as texts; your family answer was not used.")
+        else:
+            reason = " ".join(f.get("reason", "").split())
+            if len(reason) > max_text:
+                err(f"family's reason is at most {max_text} characters; your family answer was not used.")
+            else:
+                d.family = {"bond": f.get("bond", "").strip(), "child": f.get("child", "").strip(),
+                            "name": f.get("name", "").strip(), "reason": reason}
 
     for p in (raw.get("pass_on") or []) if trade else []:
         price = _number(p.get("price", 0)) if isinstance(p, dict) else None

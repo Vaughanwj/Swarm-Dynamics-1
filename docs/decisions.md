@@ -619,5 +619,23 @@ not being recorded, and the council wrote that belief into a rule. Vaughan decid
    `stop_after` setting). Agents are told exactly what run 9's are; the run simply ends early. If bonds
    and children form, the three-seed run follows.
 
-**Prompt v8.** The two sentences, the "(yours)" mark, the standing bond rule and the `bond_answers`
-field are new frozen text. Configured in `configs/run9-world.yaml`, which extends run 8's.
+**Prompt v8** (the first pilot): the two sentences, the "(yours)" mark, the standing bond rule and the
+`bond_answers` field.
+
+**The first pilot (v8, $0.26)** formed one bond (siblings, "for inheritance") and no child requests in
+40 rounds: villagers wrote "watch for bond/child offers" and waited to be asked. It also found the
+store north seven times, but each find was called "unconfirmed" when the next search there missed,
+so nobody planned or tapped. In run 6 families began only after the council passed rules encouraging
+children (round 30); no council has since. Vaughan decided:
+
+6. **Arm B is asked about family each term** (`tontine.family_ask`). At round 1 and each term's first
+   round, alongside goals, every Arm B villager is asked whether it wants to bond with another
+   villager or have a child with one, in a `family` answer: bond, child, name and reason. Naming a
+   villager asks it, as the bond or child action would, at no action's cost. The answer and its
+   reason are logged either way (`family_answer`). It makes the choice explicit without saying what
+   to choose.
+7. **A find is certain** (`commons.find_certain`). The explore line adds "A search that finds it is
+   never wrong." Misses can happen; finds cannot be false.
+
+**Prompt v9** adds the family question, the `family` field and the certain-find sentence. The pilot is
+rerun before the three seeds.

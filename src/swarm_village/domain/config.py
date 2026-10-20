@@ -137,6 +137,7 @@ class TontineConfig:
     button_from_world: bool = False  # the button's energy comes out of the world store (run 6) or from outside
     standing_requests: bool = False  # child requests stay open until the other accepts or refuses, with a reason
     standing_bonds: bool = False  # run 9: bond requests too; until then both had to ask in the same round, unseen
+    family_ask: bool = False  # run 9: each term's first round asks every villager whether to ask anyone to bond or have a child
 
 
 @dataclass(frozen=True)
@@ -156,6 +157,7 @@ class CommonsConfig:
     explore_cost: float = 5.0
     explore_accident_factor: float = 2.0  # an explorer's accident chance is multiplied by this, that round
     explore_hint: bool = False  # run 9: the explore line says one direction leads to the store and a search can miss it
+    find_certain: bool = False  # run 9: ... and that a search which finds it is never wrong
     find_base: float = 0.2  # exploring the right direction finds the store with chance base + memory x per_memory ...
     find_per_memory: float = 0.002
     find_max: float = 0.8  # ... at most this
@@ -169,7 +171,7 @@ class CommonsConfig:
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v8"
+    version: str = "v9"
     show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
