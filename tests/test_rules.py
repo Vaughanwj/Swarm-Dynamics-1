@@ -337,3 +337,19 @@ def test_seed_can_be_planted_in_the_other_channels(placement, channel):
     seed_item = next(i for i in v.world.items.values() if i.meta.get("seed"))
     assert seed_item.channel == channel
     assert all(seed_item.id in [e.id for e in c.index[channel]] for c in contexts)
+
+
+def test_asking_for_the_store_as_displayed_gets_all_of_it():
+    """Agents see stores to one decimal place (Milestone 3: every refused meal was this)."""
+    v = village(economy=NO_ACCIDENTS)
+    v.ledger.set("a01", "energy", 9.3837, "test")
+    v.ledger.set("a02", "energy", 9.3837, "test")
+    v.ledger.set("a03", "energy", 9.3837, "test")
+    v.ledger.set("a01", "health", 50.0, "test")
+    step(v, {"a01": answer(eat=9.4), "a02": answer(gifts=[{"to": "a04", "amount": 9.4}]), "a03": answer(eat=9.5)})
+    a = v.world.agents
+    assert a["a01"].energy == 0 and a["a01"].health == pytest.approx(50 + 9.3837 - 8)
+    assert a["a02"].energy == 0 and a["a04"].energy == pytest.approx(9.3837 * 0.9)
+    assert a["a03"].energy == pytest.approx(9.3837 * 0.9)  # 0.12 over is a real overdraw: refused
+    eat = [e for e in events(v) if e["type"] == "allocation" and e["agent"] == "a01"][-1]
+    assert eat["ok"] and eat["clamped"]

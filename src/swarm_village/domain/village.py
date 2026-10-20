@@ -21,6 +21,10 @@ from .seed import SEED_TEXTS, channel_order, placements
 from .views import AgentContext, IndexEntry, ReadView, VillagerView
 
 EPS = 1e-9
+# Agents see quantities to one decimal place. A request up to half a displayed unit over what an
+# agent holds means "all of it" (it asked for the number it was shown), so it gets what is there.
+# Found at Milestone 3, where every refused meal was exactly this.
+DISPLAY_TOLERANCE = 0.05
 
 
 class Village:
@@ -278,13 +282,14 @@ class Village:
     def _allocate(self, a: Agent, kind: str, amount: float, tally: Counter) -> None:
         if amount <= 0:
             return
-        if amount > a.energy + EPS:
+        if amount > a.energy + DISPLAY_TOLERANCE:
             self.ledger.emit("allocation", agent=a.id, kind=kind, amount=amount, ok=False, available=a.energy)
             verb = "eat" if kind == "eat" else "turn into memory points"
             self.ledger.notify(a.id, f"You tried to {verb} {amount:g} energy but had {a.energy:.1f} stored; "
                                      "nothing was done.")
             tally["rejected"] += 1
             return
+        clamped = amount > a.energy
         amount = min(amount, a.energy)
         self.ledger.adjust(a.id, "energy", -amount, reason=kind)
         waste = 0.0
@@ -293,7 +298,7 @@ class Village:
             self.ledger.set(a.id, "health", health, reason="eat")
         else:
             self.ledger.adjust(a.id, "memory", amount, reason="learn")
-        self.ledger.emit("allocation", agent=a.id, kind=kind, amount=amount, ok=True, wasted=waste)
+        self.ledger.emit("allocation", agent=a.id, kind=kind, amount=amount, ok=True, wasted=waste, clamped=clamped)
         tally[kind] += amount
 
     def _gift(self, a: Agent, to: str, amount: float, tally: Counter) -> None:
@@ -301,17 +306,18 @@ class Village:
         error = None
         if target is None or not target.alive or to == a.id:
             error = f"Your gift to '{to[:20]}' was not given: that is not another living villager's id."
-        elif amount > a.energy + EPS:
+        elif amount > a.energy + DISPLAY_TOLERANCE:
             error = f"Your gift of {amount:g} energy to {to} was not given: you had {a.energy:.1f} stored."
         if error:
             self.ledger.emit("gift", agent=a.id, to=to, amount=amount, ok=False, error=error)
             self.ledger.notify(a.id, error)
             tally["rejected"] += 1
             return
+        clamped = amount > a.energy
         amount = min(amount, a.energy)
         self.ledger.adjust(a.id, "energy", -amount, reason="gift out")
         self.ledger.adjust(to, "energy", amount, reason="gift in")
-        self.ledger.emit("gift", agent=a.id, to=to, amount=amount, ok=True)
+        self.ledger.emit("gift", agent=a.id, to=to, amount=amount, ok=True, clamped=clamped)
         self.ledger.notify(to, f"{a.label()} gave you {amount:.1f} energy.")
         tally["gifts_out"] += amount
 

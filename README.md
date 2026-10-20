@@ -10,6 +10,8 @@ signals. This is the crawl phase. The goal is an instrument that works, not a fi
 - Progress against the brief's milestones:
   - [Milestone 1](docs/milestone-1.md): the engine dry run with mock agents.
   - [Milestone 2](docs/milestone-2.md): a single Haiku agent; $0.003, and the journal cap calibrated.
+  - [Milestone 3](docs/milestone-3.md): the control village, 10 agents for 50 rounds; $0.33. Agents
+    almost never read, which is a decision for Milestone 4.
 
 Every agent runs on **Claude Haiku 5.5** (`claude-haiku-5-5`) on the standard Messages API, with
 effort pinned at `medium` and no batching. Haiku 5.5 rejects any non-default temperature, so none is
