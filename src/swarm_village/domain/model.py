@@ -29,6 +29,7 @@ class Agent:
     bond: str | None = None  # Arm B: the agent it is bonded to, until one of them dies
     reveals: int = 0  # Arm B: pieces of information the button has shown this agent
     education: float = 0.0  # Arm B, run 10: points from the pool's spending on a child; lower accident risk, never fade
+    will: list[str] = field(default_factory=list)  # Arm B, run 11: who inherits its stored energy, if any is alive
     presses: int = 0
     died_round: int | None = None
     death_cause: str | None = None

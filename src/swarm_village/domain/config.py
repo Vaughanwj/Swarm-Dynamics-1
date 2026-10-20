@@ -140,6 +140,8 @@ class TontineConfig:
     family_ask: bool = False  # run 9: each term's first round asks every villager whether to ask anyone to bond or have a child
     education: bool = False  # run 10: setting S3, pool energy spent on each child's education each round ...
     education_terms: int = 3  # ... in its first this many terms of life (Vaughan's "first three years")
+    wills: bool = False  # run 11: a villager may write a will naming who inherits, separate from bonding ...
+    will_max_heirs: int = 3  # ... up to this many, who share its stored energy equally
 
 
 @dataclass(frozen=True)
@@ -176,7 +178,7 @@ class CommonsConfig:
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v10"
+    version: str = "v11"
     show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed

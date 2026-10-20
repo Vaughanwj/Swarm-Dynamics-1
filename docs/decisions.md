@@ -696,3 +696,24 @@ villager votes.
 
 **A bug found while building:** the prompt compared version strings as text, so "v10" counted as older
 than "v4" and the warning sign came back. It now compares version numbers.
+
+## Run 11: wills, separate from bonding (Vaughan, 2026-10-20)
+
+Vaughan asked for wills as a function separate from bonding. In run 7, with only bonded partners inheriting,
+villagers sought bonds with their siblings as wills ("so that my energy passes to a trusted sibling if I
+die"), and those bonds produced no children. Choices made in building it (`tontine.wills`,
+`tontine.will_max_heirs`; Arm B only, since only Arm B villagers die):
+
+- **What a will does.** It names up to 3 other villagers, who share the writer's stored energy equally
+  when it dies. It takes precedence over the usual heirs.
+- **Fallback.** If no one named is alive at the death, the energy goes as it would without a will: to the
+  bonded partner, else to the pool. Partner-only inheritance and estates to the pool are unchanged.
+- **How.** A new action, `will`, takes the heirs' ids in its text and costs one action, like bond and
+  child. An empty text cancels the will. It can be changed once a round.
+- **Private until death.** The writer sees "Your will names …" among its own details. No one else is
+  told, not even the heirs. At the death the will is announced: "X left a will: its N stored energy went
+  to …". Showing it only to its writer keeps the will a private choice, and the announcement makes it
+  public afterwards, as real wills are.
+- **No prompt to write one.** Villagers without a will are not reminded. The rule and the action are in
+  the system prompt, and nothing more.
+- **Prompt v11.** Configured in `configs/run11-world.yaml`: run 10 plus wills, on the same seeds.

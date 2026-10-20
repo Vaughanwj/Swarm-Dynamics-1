@@ -101,6 +101,7 @@ class AgentContext:
     values_table: list[str] = field(default_factory=list)  # council: the village values a referendum may change
     referendum_round: int | None = None  # council: the referendum this council may set a question for
     education_setting: bool = False  # council (Arm B): the rule book has S3
+    my_will: list[str] | None = None  # Arm B, run 11: the labels my will names (None: no will); private to me
     bond_requests_to_me: list[str] = field(default_factory=list)
     my_bond_request: str | None = None
     trade: bool = False  # items read may be passed on; the answer has pass_on and buy fields

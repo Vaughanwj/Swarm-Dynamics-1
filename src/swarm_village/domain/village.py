@@ -8,6 +8,7 @@ them in. Every rule in the brief's sections 3 and 4 is carried out here or in ha
 from __future__ import annotations
 
 import math
+import re
 from collections import Counter
 from dataclasses import replace
 from typing import Any
@@ -41,7 +42,8 @@ class Village:
         self.ledger = Ledger(self.world, log)
         self.rules = rules_for(cfg, rng)
         self.channel_order = channel_order(cfg)
-        self.types = action_types(cfg.arm, self.channel_order, explore=cfg.commons.explore)
+        self.types = action_types(cfg.arm, self.channel_order, explore=cfg.commons.explore,
+                                  wills=cfg.arm is Arm.TONTINE and cfg.tontine.wills)
         self.tontine = cfg.arm is Arm.TONTINE
         self.commons = cfg.has_commons  # the pool, the button feeding it, the world store, the rule book, the council
         self.names_used: set[str] = set()
@@ -128,6 +130,7 @@ class Village:
         self._work: dict[str, int] = {}  # agent -> plot, in the order applied
         self._explored: set[str] = set()  # agents who explored this round (their accident chance is raised)
         self._ref_answers: dict[str, str] = {}  # run 10: this round's referendum answers, by agent
+        self._willed: set[str] = set()  # run 11: agents who changed their will this round
         self._tapped: set[str] = set()
         self._notes: dict[str, str] = {}
         self._children: dict[str, tuple[str, str]] = {}  # agent -> (partner, proposed name)
@@ -261,6 +264,7 @@ class Village:
             family_round=self.family_round(),
             village_name=w.village_name,
             referendum=self._referendum_view(),
+            my_will=[self._label(h) for h in a.will] if a.will else None,
             bond_requests_to_me=[f"{self._label(q['from'])} asked to bond with you in round {q['round']}. The request "
                                  "stays open until you accept or refuse it." for q in w.bond_requests if q["to"] == agent_id],
             my_bond_request=next((f"Your request to bond with {self._label(q['to'])} (round {q['round']}) has not been "
@@ -555,6 +559,8 @@ class Village:
             return None
         if t in ("explore", "tap") and self.cfg.commons.explore:
             return self._explore(a, act.text) if t == "explore" else self._tap(a)
+        if t == "will" and self.tontine and self.cfg.tontine.wills:
+            return self._write_will(a, act.text)
         if t == "bond" and self.tontine:
             if a.id in self._bonds:
                 return "You can ask to bond only once a round."
@@ -673,7 +679,41 @@ class Village:
                              + (" and will not end." if self.cfg.commons.reveals_version != "v1" else "."))
 
     # ------------------------------------------------------------------ deaths and estates
+    def _write_will(self, a: Agent, text: str) -> str | None:
+        """Run 11: name up to will_max_heirs living villagers (by id in text) to share one's stored
+        energy at death; an empty text cancels the will. Private: only the writer is told."""
+        n = self.cfg.tontine.will_max_heirs
+        if a.id in self._willed:
+            return "You can change your will only once a round."
+        ids = list(dict.fromkeys(re.findall(r"\ba\d+\b", text or "")))
+        if not ids:
+            if not (text or "").strip():
+                if not a.will:
+                    return "You have no will to cancel."
+                self._willed.add(a.id)
+                self.ledger.set(a.id, "will", [], reason="will cancelled")
+                self.ledger.emit("will_written", agent=a.id, heirs=[], cancelled=True)
+                self.ledger.notify(a.id, "Your will is cancelled; your stored energy will go as it would without one.")
+                return None
+            return "Your will was not written: name the ids of the villagers who should inherit, such as a03."
+        bad = [i for i in ids if i == a.id or i not in self.world.agents or not self.world.agents[i].alive]
+        if bad:
+            return f"Your will was not written: {', '.join(b[:8] for b in bad)} is not another living villager's id."
+        if len(ids) > n:
+            return f"Your will was not written: a will names at most {n} villagers."
+        self._willed.add(a.id)
+        self.ledger.set(a.id, "will", ids, reason="will")
+        self.ledger.emit("will_written", agent=a.id, heirs=ids, cancelled=False)
+        self.ledger.notify(a.id, f"Your will now names {', '.join(self._label(i) for i in ids)}. It is private until you die.")
+        return None
+
     def _heirs(self, agent_id: str, partner: str | None) -> list[str]:
+        """Run 11: a will's living heirs come first; without a will, or if none of its heirs is
+        alive, the usual heirs."""
+        if self.tontine and self.cfg.tontine.wills:
+            named = [h for h in self.world.agents[agent_id].will if self.world.agents[h].alive]
+            if named:
+                return sorted(named)
         mode = self.cfg.tontine.heirs
         family = heirs(self.world, agent_id) if mode in ("family", "partner_and_family") else []
         mate = [partner] if mode in ("partner", "partner_and_family") and partner and self.world.agents[partner].alive else []
@@ -703,7 +743,11 @@ class Village:
         for i in ids:
             estate = self.world.agents[i].energy
             heir_ids = self._heirs(i, partners[i])
+            by_will = bool(heir_ids) and set(heir_ids) <= set(self.world.agents[i].will)
             shares, lost = split_estate(estate, heir_ids, living, self.cfg.tontine.village_share)
+            if by_will and estate:
+                self.ledger.announce(f"{self._label(i)} left a will: its {estate:.1f} stored energy went to "
+                                     f"{', '.join(self._label(h) for h in heir_ids)}.")
             if estate:
                 self.ledger.set(i, "energy", 0.0, reason="estate")
             for h, amount in shares.items():
@@ -717,7 +761,7 @@ class Village:
                 self.ledger.announce(f"No heir survived {self._label(i)}, so their {to_pool:.1f} stored energy went to the "
                                      "village pool.")
             self.ledger.emit("inheritance", deceased=i, estate=estate, heirs=heir_ids, shares=shares, lost=lost,
-                             to_pool=to_pool)
+                             to_pool=to_pool, by_will=by_will)
 
     # ------------------------------------------------------------------ resolving the round
     def resolve(self) -> None:

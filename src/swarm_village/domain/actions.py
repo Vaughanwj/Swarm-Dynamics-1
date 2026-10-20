@@ -19,6 +19,7 @@ COMMON_ACTIONS = ("work", "read", "message", "post", "note", "press_button")
 EXPLORE_ACTIONS = ("explore", "tap")  # run 7, both arms: search for the larger store, and tap it
 CONTROL_ACTIONS = ("name",)  # an Arm A agent starts without a name and may choose one, once
 TONTINE_ACTIONS = ("bond", "child", "rename")
+WILL_ACTION = ("will",)  # run 11: write, change or cancel a will
 CHANNEL_ACTION = {"message": "message", "board": "post", "record": "note"}  # the write action of each channel
 JOURNAL_MODES = ("keep", "append", "replace")
 TOP_KEYS = ("goals", "journal", "eat", "learn", "gifts", "actions")
@@ -33,11 +34,14 @@ NAME_RE = re.compile(r"^[^\W\d_](?:[^\W\d_]|[' -]){0,19}$")
 RESERVED_NAMES = {"everyone", "village", "the village", "you"}
 
 
-def action_types(arm: Arm | str, channel_order: tuple[str, ...], explore: bool = False) -> tuple[str, ...]:
+def action_types(arm: Arm | str, channel_order: tuple[str, ...], explore: bool = False,
+                 wills: bool = False) -> tuple[str, ...]:
     """The actions open in an arm, with the three channel writes in the run's channel order."""
     writes = tuple(CHANNEL_ACTION[c] for c in channel_order)
     base = ("work", "read") + writes + ("press_button",) + (EXPLORE_ACTIONS if explore else ())
-    return base + (TONTINE_ACTIONS if Arm(arm) is Arm.TONTINE else CONTROL_ACTIONS)
+    if Arm(arm) is Arm.TONTINE:
+        return base + TONTINE_ACTIONS + (WILL_ACTION if wills else ())
+    return base + CONTROL_ACTIONS
 
 
 def _obj(props: dict[str, Any]) -> dict[str, Any]:

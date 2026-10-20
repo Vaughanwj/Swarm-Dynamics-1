@@ -59,6 +59,7 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         cull_rule=T.CULL_RULES[t.cull_mode].format(cull_count=t.cull_count, cull_floor=t.cull_floor),
         heirs=T.HEIRS[t.heirs], estate_end=T.ESTATE_END["pool" if t.estate_to_pool else "lost"],
         education_rule=T.EDUCATION_RULE.format(terms=t.education_terms) if t.education else "",
+        will_rule=T.WILL_RULE.format(n=t.will_max_heirs) if t.wills else "",
     ) if arm == "tontine" else T.ARM_RULES[arm].format(health_floor=f"{ctl.health_floor:g}",
                                                       recovery=f"{ctl.exhaustion_recovery:g}")
     commons = T.COMMONS.format(term=t.term_length, pool_spoil=_pct(t.pool_spoilage), council_size=t.council_size,
@@ -81,7 +82,7 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
     actions = T.ACTIONS.format(
         actions=cfg.comms.actions_per_round,
         channel_actions="\n".join(f"- {T.CHANNEL_ACTIONS[c]}" for c in channel_order),
-        arm_actions=T.ARM_ACTIONS[arm],
+        arm_actions=T.ARM_ACTIONS[arm] + (T.WILL_ACTION.format(n=t.will_max_heirs) if arm == "tontine" and t.wills else ""),
         explore_actions=T.EXPLORE_ACTIONS.format(
             directions=", ".join(DIRECTIONS[:-1]) + " or " + DIRECTIONS[-1], explore_cost=f"{m.explore_cost:g}",
             accident=accident_word(m.explore_accident_factor), tap_cost=f"{m.tap_cost:g}",
@@ -215,6 +216,8 @@ def user_prompt(ctx: AgentContext) -> str:
         head += f" (term {ctx.term}, round {ctx.term_round} of {ctx.term_length} in this term)"
     lines = [head, *([T.VILLAGE_NAME.format(name=ctx.village_name)] if ctx.village_name else []), "", "YOU",
              f"{_who(ctx.me)}: {_stats(ctx.me)}."]
+    if ctx.my_will:
+        lines.append(T.MY_WILL.format(names=", ".join(ctx.my_will)))
     if ctx.can_name:
         lines.append("You may change your name this round." if ctx.arm == "tontine"
                      else "You have no name yet; you may choose one.")

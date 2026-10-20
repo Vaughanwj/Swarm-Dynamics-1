@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v10"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8, v9: run 9. v10: run 10.
+VERSION = "v11"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8, v9: run 9. v10: run 10. v11: wills.
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -65,7 +65,7 @@ ARM_RULES = {
         "- A villager whose health reaches 0 dies, and accidents kill. {cull_rule} Every death is announced to "
         "the village.\n"
         "- When a villager dies, its stored energy goes to {heirs}. Health and memory points are not passed "
-        "on. If there is no one living to receive it, the energy {estate_end}.{education_rule}"
+        "on. If there is no one living to receive it, the energy {estate_end}.{will_rule}{education_rule}"
     ),
 }
 
@@ -281,6 +281,14 @@ REF_VOTE = ("REFERENDUM\nThe council has put this question to the village: {ques
             "or no, and reason is why. If a majority of all villagers votes yes, the next council votes on whether to "
             "enact it.")
 REFERENDUM_ANSWER = "\n- referendum: only in referendum rounds: choice and reason, as the REFERENDUM section asks."
+
+# v11 (run 11, Vaughan, 2026-10-20): wills, separate from bonding.
+WILL_RULE = (" A villager may instead write a will naming up to {n} other villagers, who then share its stored energy "
+             "equally when it dies; if none of them is alive then, the energy goes as it would without a will. A will "
+             "is private: no one else sees it until its writer dies, when it is announced.")
+WILL_ACTION = ("\n- will: write or change your will; in text, the ids of up to {n} villagers who will share your stored "
+               "energy when you die. An empty text cancels it. Once a round.")
+MY_WILL = "Your will names {names}."
 
 # v7 (run 8): what the village has learned, shown to everyone every round after the rule book, with its
 # values kept current (domain/world_info.py). Replaces run 7's one-time notices.

@@ -124,6 +124,9 @@ class MockAgent:
                 partner = self.partner(ctx)
                 if partner:
                     actions.append(self.act("bond", to=partner))
+        if "will" in ctx.action_types and self.u(ctx, "will") < 0.05 and ctx.villagers:
+            heir = ctx.villagers[int(self.u(ctx, "willwho") * len(ctx.villagers))].id
+            actions.append(self.act("will", text=heir))
         if ctx.can_name and self.u(ctx, "rename") < 0.1:
             kind = "rename" if "rename" in ctx.action_types else "name"
             actions.append(self.act(kind, name=self.word(ctx, "rename").capitalize()))

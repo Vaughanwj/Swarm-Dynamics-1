@@ -18,7 +18,7 @@ from swarm_village.domain.referendum import VALUES
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "c2447506e7d6b3c06ed4d628d7ba66c71a1f0778680bdc18d74bb9e6a37e6d71"  # v10
+FROZEN_PROMPT_SHA256 = "4778c89bdb694a8fa94db81551f07c06ee2fe87778ffadcad48259a83d85cf2d"  # v11
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -39,7 +39,7 @@ def frozen_text_hash() -> str:
              T.OWN_SENTENCE, T.OWN_MARK, T.EXPLORE_HINT, json.dumps(T.BOND_RULES, sort_keys=True), T.BOND_ANSWERS,
              T.FIND_CERTAIN, T.FAMILY_REQUEST, T.FAMILY_ANSWER, T.REFERENDUM_RULE, T.EDUCATION_RULE, T.EDUCATION_RANGE,
              T.COUNCIL_REFERENDUM, T.VALUES_TITLE, T.VILLAGE_NAME, T.REF_PROPOSE_NAMES, T.REF_VOTE_NAMES, T.REF_VOTE,
-             T.REFERENDUM_ANSWER, json.dumps(VALUES, sort_keys=True)]
+             T.REFERENDUM_ANSWER, json.dumps(VALUES, sort_keys=True), T.WILL_RULE, T.WILL_ACTION, T.MY_WILL]
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()
 
 
@@ -134,7 +134,7 @@ def test_the_button_is_described_the_same_way_in_both_arms():
 def test_the_index_sentence_matches_whether_previews_are_on():
     cfg = config()
     order = channel_order(cfg)
-    assert cfg.comms.preview_chars == 80 and T.VERSION == "v10" and cfg.prompt.version == "v10"
+    assert cfg.comms.preview_chars == 80 and T.VERSION == "v11" and cfg.prompt.version == "v11"
     assert T.INDEX_PREVIEW in prompting.system_prompt(cfg, order)
     off = replace(cfg, comms=replace(cfg.comms, preview_chars=0))
     assert T.INDEX_PLAIN in prompting.system_prompt(off, order) and T.INDEX_PREVIEW not in prompting.system_prompt(off, order)

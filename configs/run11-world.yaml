@@ -1,0 +1,14 @@
+# Run 11 (Vaughan, 2026-10-20): run 10 with wills, separate from bonding (Arm B). Prompt v11.
+# - A villager may write a will naming up to 3 other villagers, who share its stored energy equally
+#   when it dies. Without a will, or if none of them is alive, the energy goes as before: to its
+#   bonded partner, else to the pool. A will is private until its writer dies, when it is announced.
+# - Why: in run 7, with only bonded partners inheriting, villagers sought bonds with siblings as wills
+#   ("so that my energy passes to a trusted sibling if I die"), and those bonds produced no children.
+# Same seeds as runs 9 and 10. See docs/decisions.md.
+extends: run10-world.yaml
+name: run11-world
+prompt:
+  version: v11
+tontine:
+  wills: true
+  will_max_heirs: 3
