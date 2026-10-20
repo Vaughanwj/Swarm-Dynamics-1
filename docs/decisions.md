@@ -639,3 +639,60 @@ children (round 30); no council has since. Vaughan decided:
 
 **Prompt v9** adds the family question, the `family` field and the certain-find sentence. The pilot is
 rerun before the three seeds.
+
+## Run 10: a stricter plan check, child education, referendums (Vaughan, 2026-10-20)
+
+After run 9 ([run-9.md](run-9.md)), Vaughan decided three changes. The run uses the same seeds (701,
+702, 703), both arms, and prompt v10. Configured in `configs/run10-world.yaml`, which extends run 9's.
+
+**1. The plan check** (`commons.plan_check: direction`). A written rule counts as a plan if it names
+the store's direction and no other direction, and mentions the store or tapping; it need not contain
+the word "plan". In run 9 the old check credited a rule listing all six directions (control 701) and
+missed a real south-east plan that never said "plan" (control 703).
+
+**2. Child education, Arm B** (`tontine.education`). A new rule-book setting, S3: the energy the pool
+spends on each child's education each round, set by the council like S1 and S2 (from 0 to 10; it
+starts at 0).
+- **Who.** Children in their first three terms of life (30 rounds). Vaughan said "first three years";
+  I read a year as a term, since terms are the village's only longer unit of time.
+- **What it buys.** Each unit spent is one education point. Education points lower a villager's
+  accident chance exactly as memory points do (they add to memory in the accident formula), but never
+  fade, and do nothing else.
+- **A short pool** is split equally among the children due.
+- **Shown.** A child sees its education points beside its memory points.
+- **Why.** In run 9, 9 of Arm B's 15 children died in accidents; they start with 4 to 22 memory points.
+
+**3. Referendums, both arms** (`commons.referendum_every: 33`). Every 33 rounds (33, 66 and 99), every
+villager votes.
+- **The first names the village.** Every villager proposes a name in round 33, and every villager
+  votes among the names proposed in round 34. The name with the most votes goes to the next council
+  (round 40); ties are broken by lot. If the council agrees by majority, the village takes the name,
+  and it is shown in every prompt.
+- **After that, the council sets the question.** At the council before a referendum (rounds 60 and
+  90), a member may propose a question: a change to one of the village's known values, or a new name.
+  The question with the most yes votes is put to the village.
+- **Both must agree.** The question takes effect only if a majority of all living villagers votes yes
+  (abstaining counts as no), and then a majority of the next council (rounds 70 and 100) agrees.
+- **Changing values, "even if it changes one of the known configuration values".** A changed value
+  applies from the next round. It is kept in the world (`overrides`), so the tap can rebuild it, and
+  the system prompt is re-rendered to state it (saved as `system_prompt-rNNN.txt`).
+- **The known values** (`domain/referendum.py`) are the numbers villagers are told, each within
+  bounds:
+  - health lost a round (4 to 12);
+  - village income (60 to 240);
+  - stored-energy loss (0 to 30%);
+  - memory fade (0 to 10%);
+  - pool loss (0 to 30%);
+  - explore cost (0 to 20);
+  - tap cost (0 to 30);
+  - actions a round (2 to 8);
+  - in Arm B, a child's cost (0 to 40, and bonded 0 to 40), a child's starting health (20 to 100) and
+    the village's limit (10 to 30);
+  - in the control, the health needed to recover from exhaustion (1 to 50).
+- **Not changeable:** hidden values (the tapping target, the world store, the horizon) cannot be put
+  to a referendum, since villagers do not know them.
+- **The round-99 referendum** goes to the round-100 council, so it can take effect only if the run
+  continues past round 100 (after a save).
+
+**A bug found while building:** the prompt compared version strings as text, so "v10" counted as older
+than "v4" and the warning sign came back. It now compares version numbers.

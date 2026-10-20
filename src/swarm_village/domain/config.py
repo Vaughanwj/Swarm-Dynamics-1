@@ -138,6 +138,8 @@ class TontineConfig:
     standing_requests: bool = False  # child requests stay open until the other accepts or refuses, with a reason
     standing_bonds: bool = False  # run 9: bond requests too; until then both had to ask in the same round, unseen
     family_ask: bool = False  # run 9: each term's first round asks every villager whether to ask anyone to bond or have a child
+    education: bool = False  # run 10: setting S3, pool energy spent on each child's education each round ...
+    education_terms: int = 3  # ... in its first this many terms of life (Vaughan's "first three years")
 
 
 @dataclass(frozen=True)
@@ -158,6 +160,9 @@ class CommonsConfig:
     explore_accident_factor: float = 2.0  # an explorer's accident chance is multiplied by this, that round
     explore_hint: bool = False  # run 9: the explore line says one direction leads to the store and a search can miss it
     find_certain: bool = False  # run 9: ... and that a search which finds it is never wrong
+    plan_check: str = "word"  # word (design C): a rule says "plan" and names the direction; direction (run 10): names
+    #                           only the store's direction and mentions the store or tapping
+    referendum_every: int = 0  # run 10: a referendum every N rounds; the first names the village (0: none)
     find_base: float = 0.2  # exploring the right direction finds the store with chance base + memory x per_memory ...
     find_per_memory: float = 0.002
     find_max: float = 0.8  # ... at most this
@@ -171,7 +176,7 @@ class CommonsConfig:
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v9"
+    version: str = "v10"
     show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
@@ -245,6 +250,10 @@ class RunConfig:
                 raise ValueError("commons.public_reveals has six reveals to schedule at most")
             if m.reveals_version not in ("v1", "v2"):
                 raise ValueError("commons.reveals_version must be v1 or v2 (domain/world_info.py)")
+            if m.plan_check not in ("word", "direction"):
+                raise ValueError("commons.plan_check must be word or direction")
+            if m.referendum_every < 0 or (m.referendum_every and m.referendum_every < 2):
+                raise ValueError("commons.referendum_every must be 0 (none) or at least 2")
             if m.explore and not (0 <= m.find_base <= m.find_max <= 1 and m.min_tappers >= 1 and m.tap_target > 0):
                 raise ValueError("commons: need 0 <= find_base <= find_max <= 1, min_tappers >= 1 and tap_target > 0")
         elif self.commons.public_reveals or self.commons.explore:

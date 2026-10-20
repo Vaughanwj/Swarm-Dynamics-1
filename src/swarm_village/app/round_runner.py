@@ -20,7 +20,7 @@ def to_decision(reply: Reply | None, village: Village) -> Decision:
                  answers=village.tontine and village.cfg.tontine.standing_requests,
                  trade=village.cfg.comms.info_trade,
                  bond_answers=village.tontine and village.cfg.tontine.standing_bonds,
-                 family=village.family_round())
+                 family=village.family_round(), referendum=village.referendum_active())
 
 
 class RoundRunner:

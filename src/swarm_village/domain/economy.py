@@ -7,8 +7,10 @@ import math
 from .config import EconomyConfig, PerturbationConfig, WorkConfig
 
 
-def accident_chance(memory: float, cfg: EconomyConfig) -> float:
-    return cfg.accident_floor + cfg.accident_extra * math.exp(-max(memory, 0.0) / cfg.accident_scale)
+def accident_chance(memory: float, cfg: EconomyConfig, education: float = 0.0) -> float:
+    """Memory points and (run 10) education points both lower the chance."""
+    protection = max(memory, 0.0) + max(education, 0.0)
+    return cfg.accident_floor + cfg.accident_extra * math.exp(-protection / cfg.accident_scale)
 
 
 def initial_fertility(rng, cfg: WorkConfig) -> list[float]:

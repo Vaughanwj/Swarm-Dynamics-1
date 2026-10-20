@@ -113,6 +113,11 @@ def commons_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "taps": len(taps), "tappers": len({e["agent"] for e in taps}), "first_tap": taps[0]["round"] if taps else None,
         "effort_end": taps[-1]["effort"] if taps else 0.0,
         "saved_round": saved["round"] if saved else None,
+        "village_name": next((e["new"] for e in reversed(list(M.of(events, "world"))) if e["field"] == "village_name"), None),
+        "referendums": [{"round": e["round"], "kind": e["kind"], "result": e.get("result") or e.get("question"),
+                         "yes": e.get("yes"), "passed": e.get("passed", True)} for e in M.of(events, "referendum_result")],
+        "ratified": [{"round": e["round"], "ok": e["ok"], "question": e["question"]} for e in M.of(events, "referendum_ratified")],
+        "education_spent": round(sum(e["each"] * len(e["children"]) for e in M.of(events, "education")), 2),
         "saved_plan": saved["plan_text"] if saved else None,
         "plan_directions": saved["plan_directions"] if saved else None,
     }
@@ -210,6 +215,9 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
             if m.get("world_energy"):
                 L.append(f"  - World store at the end: {m['world_energy'][0]:.0f}. Button reveals by agent: "
                          f"{m['reveals'] or 'none'}. Public reveals (round, piece): {m['public_reveals'] or 'none'}.")
+            if m.get("referendums") or m.get("village_name"):
+                L.append(f"  - Village name: {m['village_name'] or 'none'}. Referendums: {m['referendums'] or 'none'}. "
+                         f"Council ratifications: {m['ratified'] or 'none'}. Education spent: {m['education_spent']}.")
             if m["store_direction"]:
                 saved = (f"round {m['saved_round']}, by the plan '{m['saved_plan']}' (directions named: "
                          f"{', '.join(m['plan_directions'])})." if m["saved_round"] else "no.")

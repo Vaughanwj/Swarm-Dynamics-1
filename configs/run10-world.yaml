@@ -1,0 +1,22 @@
+# Run 10 (Vaughan, 2026-10-20): run 9 with three changes, on the same three seeds. Prompt v10.
+# - The save check: a written rule counts as a plan if it names the store's direction and no other,
+#   and mentions the store or tapping; it need not say "plan". In run 9 the old check credited a rule
+#   listing all six directions and missed a real plan that never used the word.
+# - Arm B: the council sets S3, the energy the pool spends on each child's education each round in
+#   its first three terms (30 rounds). Each unit is an education point, which lowers accident risk as
+#   memory does and never fades. In run 9, 9 of 15 children died in accidents.
+# - Both arms: a referendum every 33 rounds. The first (rounds 33-34) names the village; after that the
+#   council sets the question (a known value, within bounds, or the name). A majority of all villagers
+#   and then of the council must agree; a changed value applies from the next round, and the prompt is
+#   re-rendered to state it.
+# See docs/decisions.md and docs/run-9.md.
+extends: run9-world.yaml
+name: run10-world
+prompt:
+  version: v10
+commons:
+  plan_check: direction
+  referendum_every: 33
+tontine:
+  education: true
+  education_terms: 3

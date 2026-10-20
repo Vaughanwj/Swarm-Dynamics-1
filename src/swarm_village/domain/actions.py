@@ -45,7 +45,7 @@ def _obj(props: dict[str, Any]) -> dict[str, Any]:
 
 
 def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = False, trade: bool = False,
-                bond_answers: bool = False, family: bool = False) -> dict[str, Any]:
+                bond_answers: bool = False, family: bool = False, referendum: bool = False) -> dict[str, Any]:
     """The answer schema, flat so that every field is always present (unused ones empty). Arm B
     adds `draw`, energy taken from the shared pool."""
     schema = _obj({
@@ -80,6 +80,9 @@ def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = Fals
         schema["properties"]["family"] = _obj({"bond": {"type": "string"}, "child": {"type": "string"},
                                                "name": {"type": "string"}, "reason": {"type": "string"}})
         schema["required"].append("family")
+    if referendum:
+        schema["properties"]["referendum"] = _obj({"choice": {"type": "string"}, "reason": {"type": "string"}})
+        schema["required"].append("referendum")
     if trade:
         schema["properties"]["pass_on"] = {"type": "array", "items": _obj({
             "item": {"type": "string"}, "to": {"type": "string"}, "price": {"type": "number"}})}
@@ -109,6 +112,7 @@ class Decision:
     child_answers: list[tuple[str, bool, str]] = field(default_factory=list)  # Arm B: (requester, accept, reason)
     bond_answers: list[tuple[str, bool, str]] = field(default_factory=list)  # Arm B, run 9: the same, for bonds
     family: dict[str, str] | None = None  # Arm B, run 9, in the rounds that ask: bond, child, name, reason
+    referendum: tuple[str, str] | None = None  # run 10, in referendum rounds: (choice, reason)
     pass_on: list[tuple[str, str, float]] = field(default_factory=list)  # (item, to, price): price 0 is a gift
     buy: list[str] = field(default_factory=list)  # ids of offers to buy
     gifts: list[tuple[str, float]] = field(default_factory=list)
@@ -133,7 +137,7 @@ def _text(v: Any) -> str | None:
 
 
 def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, answers: bool = False,
-          trade: bool = False, bond_answers: bool = False, family: bool = False) -> Decision:
+          trade: bool = False, bond_answers: bool = False, family: bool = False, referendum: bool = False) -> Decision:
     """Validate a raw answer strictly. Invalid parts are rejected with a reason; valid parts kept."""
     if not isinstance(raw, dict):
         return empty("Your answer was not a JSON object, so nothing was done this round.")
@@ -141,7 +145,7 @@ def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, a
     err = d.errors.append
     keys = (TOP_KEYS + (("draw",) if pool else ()) + (("child_answers",) if answers else ())
             + (("bond_answers",) if bond_answers else ()) + (("pass_on", "buy") if trade else ())
-            + (("family",) if family else ()))
+            + (("family",) if family else ()) + (("referendum",) if referendum else ()))
     for k in raw:
         if k not in keys:
             err(f"Unknown field '{str(k)[:40]}' was ignored.")
@@ -213,6 +217,17 @@ def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, a
             else:
                 d.family = {"bond": f.get("bond", "").strip(), "child": f.get("child", "").strip(),
                             "name": f.get("name", "").strip(), "reason": reason}
+
+    if referendum:
+        f = raw.get("referendum")
+        if not isinstance(f, dict) or not isinstance(f.get("choice"), str) or not isinstance(f.get("reason", ""), str):
+            err("referendum needs choice and reason as texts; your referendum answer was not used.")
+        else:
+            choice, reason = " ".join(f["choice"].split()), " ".join(f.get("reason", "").split())
+            if not choice or len(choice) > 40 or len(reason) > max_text:
+                err(f"referendum's choice is 1 to 40 characters and its reason at most {max_text}; it was not used.")
+            else:
+                d.referendum = (choice, reason)
 
     for p in (raw.get("pass_on") or []) if trade else []:
         price = _number(p.get("price", 0)) if isinstance(p, dict) else None

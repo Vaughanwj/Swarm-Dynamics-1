@@ -16,7 +16,10 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-PROPOSAL_KINDS = ("none", "add", "change", "delete")
+from . import referendum as ref
+from .actions import valid_name
+
+PROPOSAL_KINDS = ("none", "add", "change", "delete", "referendum")
 
 # id -> (setting name, what it means, initial value, lowest, highest). A draw limit of None is "no
 # limit"; proposals give a value below 0 for that.
@@ -25,11 +28,15 @@ SETTINGS: dict[str, dict[str, Any]] = {
            "initial": None, "min": 0.0, "max": 1000.0},
     "S2": {"name": "pool_income_share", "label": "Share of each round's village income put into the pool before "
            "it is split", "initial": 0.0, "min": 0.0, "max": 0.5},
+    # Run 10, Arm B only: what the pool spends on each child's education each round, in its first terms.
+    "S3": {"name": "education_spend", "label": "Energy the pool spends on each child's education each round, in its "
+           "first three terms of life", "initial": 0.0, "min": 0.0, "max": 10.0},
 }
 
 
-def initial_rules() -> list[dict[str, Any]]:
-    return [{"id": rid, "kind": "setting", "setting": s["name"], "value": s["initial"]} for rid, s in SETTINGS.items()]
+def initial_rules(education: bool = False) -> list[dict[str, Any]]:
+    return [{"id": rid, "kind": "setting", "setting": s["name"], "value": s["initial"]} for rid, s in SETTINGS.items()
+            if rid != "S3" or education]
 
 
 def setting(rules: list[dict[str, Any]], name: str) -> Any:
@@ -42,6 +49,8 @@ def setting(rules: list[dict[str, Any]], name: str) -> Any:
 def _fmt_value(rid: str, value: Any) -> str:
     if rid == "S1":
         return "no limit" if value is None else f"{value:g} energy"
+    if rid == "S3":
+        return f"{value:g} energy"
     return f"{value * 100:g}%"
 
 
@@ -54,12 +63,17 @@ def describe(rule: dict[str, Any]) -> str:
 @dataclass(frozen=True)
 class Proposal:
     by: str  # agent id
-    kind: str  # add | change | delete
-    rule: str = ""  # target rule id (change, delete)
-    text: str = ""  # add, or change of a written rule
-    value: float | None = None  # change of a setting (None: no limit, for S1)
+    kind: str  # add | change | delete; referendum (a question for the village); ratify (the village's, run 10)
+    rule: str = ""  # target rule id (change, delete); a value id or "name" (referendum, ratify)
+    text: str = ""  # add, or change of a written rule; referendum and ratify: what is proposed, in words
+    value: float | None = None  # change of a setting (None: no limit, for S1); referendum: the new value
+    name: str = ""  # referendum or ratify on the village's name: the name
 
     def describe(self, rules: list[dict[str, Any]]) -> str:
+        if self.kind == "referendum":
+            return f"put to the village at its referendum: {self.text}"
+        if self.kind == "ratify":
+            return f"enact the referendum result: {self.text}"
         if self.kind == "add":
             return f'add a written rule: "{self.text}"'
         if self.kind == "delete":
@@ -71,14 +85,33 @@ class Proposal:
         return f'change {self.rule} to: "{self.text}"'
 
 
-def parse_proposal(raw: Any, by: str, rules: list[dict[str, Any]], max_chars: int) -> tuple[Proposal | None, str | None]:
-    """(proposal, error). (None, None) means the member proposed nothing."""
+def parse_proposal(raw: Any, by: str, rules: list[dict[str, Any]], max_chars: int,
+                   referendum: dict[str, Any] | None = None) -> tuple[Proposal | None, str | None]:
+    """(proposal, error). (None, None) means the member proposed nothing. `referendum` is set when this
+    council may put a question to the village: {"round", "arm", "cfg"} (run 10)."""
     p = raw.get("proposal") if isinstance(raw, dict) else None
     if not isinstance(p, dict) or p.get("kind") not in PROPOSAL_KINDS:
         return None, "Your proposal was not understood, so you proposed nothing."
     kind = p["kind"]
     if kind == "none":
         return None, None
+    if kind == "referendum":
+        if referendum is None:
+            return None, "No referendum is due before the next council, so you proposed nothing."
+        target = str(p.get("rule") or "").strip()
+        if target.lower() == "name":
+            name = " ".join(str(p.get("text") or "").split())
+            if not valid_name(name):
+                return None, "A new name for the village is 1 to 20 letters, spaces, hyphens or apostrophes; you proposed nothing."
+            return Proposal(by, "referendum", rule="name", name=name, text=f"name the village {name}"), None
+        value, error = ref.parse_value(target, p.get("value"), referendum["arm"])
+        if error:
+            return None, error
+        cfg = referendum["cfg"]
+        label = ref.VALUES[target]["label"]
+        text = (f"change {target} ({label}) from {ref.fmt(target, ref.current(cfg, target))} to "
+                f"{ref.fmt(target, value)}")
+        return Proposal(by, "referendum", rule=target, value=value, text=text), None
     rule = str(p.get("rule") or "").strip()
     text = " ".join(str(p.get("text") or "").split())
     ids = {r["id"] for r in rules}
@@ -138,6 +171,8 @@ def enact(rules: list[dict[str, Any]], passed: list[Proposal], used: int = 0
     used = next_written(rules, used) - 1  # the book as it stood before this session counts as used
     outcomes = []
     for p in passed:
+        if p.kind not in ("add", "change", "delete"):
+            continue  # referendums and ratifications are the village's business, not the rule book's
         if p.kind == "add":
             n = next_written(book, used)
             used = n

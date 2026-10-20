@@ -13,11 +13,12 @@ from swarm_village.adapters import prompting
 from swarm_village.domain.config import CHANNELS
 from swarm_village.domain.seed import ORDERS, ROTATION, SEED_TEXTS, channel_order, placements
 from swarm_village.domain.world_info import REVEALS, SAVED
+from swarm_village.domain.referendum import VALUES
 
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "2122b10337132b4eed17f263cec3a91bada687d0f6c1c7b8a895b6e0ac20e477"  # v9
+FROZEN_PROMPT_SHA256 = "c2447506e7d6b3c06ed4d628d7ba66c71a1f0778680bdc18d74bb9e6a37e6d71"  # v10
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -36,7 +37,9 @@ def frozen_text_hash() -> str:
              T.CHILD_ANSWERS, T.READ_REWARD_SCHEDULE, T.READ_LINE, T.READ_LINE_FREE, T.READ_REWARD_FIXED,
              T.INFO_TRADE, T.TRADE_ANSWER, T.LEARNED_TITLE, T.LEARNED_NEW, json.dumps(REVEALS, sort_keys=True), SAVED,
              T.OWN_SENTENCE, T.OWN_MARK, T.EXPLORE_HINT, json.dumps(T.BOND_RULES, sort_keys=True), T.BOND_ANSWERS,
-             T.FIND_CERTAIN, T.FAMILY_REQUEST, T.FAMILY_ANSWER]
+             T.FIND_CERTAIN, T.FAMILY_REQUEST, T.FAMILY_ANSWER, T.REFERENDUM_RULE, T.EDUCATION_RULE, T.EDUCATION_RANGE,
+             T.COUNCIL_REFERENDUM, T.VALUES_TITLE, T.VILLAGE_NAME, T.REF_PROPOSE_NAMES, T.REF_VOTE_NAMES, T.REF_VOTE,
+             T.REFERENDUM_ANSWER, json.dumps(VALUES, sort_keys=True)]
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()
 
 
@@ -131,7 +134,7 @@ def test_the_button_is_described_the_same_way_in_both_arms():
 def test_the_index_sentence_matches_whether_previews_are_on():
     cfg = config()
     order = channel_order(cfg)
-    assert cfg.comms.preview_chars == 80 and T.VERSION == "v9" and cfg.prompt.version == "v9"
+    assert cfg.comms.preview_chars == 80 and T.VERSION == "v10" and cfg.prompt.version == "v10"
     assert T.INDEX_PREVIEW in prompting.system_prompt(cfg, order)
     off = replace(cfg, comms=replace(cfg.comms, preview_chars=0))
     assert T.INDEX_PLAIN in prompting.system_prompt(off, order) and T.INDEX_PREVIEW not in prompting.system_prompt(off, order)

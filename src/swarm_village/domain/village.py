@@ -13,6 +13,7 @@ from dataclasses import replace
 from typing import Any
 
 from . import economy, governance, store
+from . import referendum as ref
 from .actions import Action, Decision, action_types, valid_name
 from .config import Arm, RunConfig
 from .families import CLOSE_KIN, heirs, kinship, relation, split_estate, term_of, term_of_life
@@ -33,6 +34,8 @@ class Village:
     def __init__(self, cfg: RunConfig, rng: Any, log: Any) -> None:
         cfg.validate()
         self.cfg = cfg
+        self.base_cfg = cfg  # run 10: self.cfg is this with the values the village has changed (world.overrides)
+        self.config_version = 0  # bumped whenever a referendum changes a value, so the prompt is re-rendered
         self.rng = rng
         self.world = World(arm=cfg.arm.value)
         self.ledger = Ledger(self.world, log)
@@ -70,7 +73,8 @@ class Village:
             if name:
                 self.names_used.add(name)
         if self.commons:
-            self.ledger.set_world("rules", governance.initial_rules(), reason="founding")
+            self.ledger.set_world("rules", governance.initial_rules(education=self.tontine and c.tontine.education),
+                                  reason="founding")
             if c.tontine.world_energy:
                 self.ledger.set_world("energy", float(c.tontine.world_energy), reason="founding")
         if c.commons.explore:
@@ -89,6 +93,7 @@ class Village:
             self._plant_seed()
         if r in self.cfg.commons.public_reveals:
             self._reveal_publicly(self.cfg.commons.public_reveals.index(r))
+        self._referendum_begin(r)
         living = sorted(a.id for a in self.world.living())
         draws = {i: self.rng.uniform("order", r, i) for i in living}
         self.order = sorted(living, key=lambda i: (draws[i], i))
@@ -122,6 +127,7 @@ class Village:
     def _reset_scratch(self) -> None:
         self._work: dict[str, int] = {}  # agent -> plot, in the order applied
         self._explored: set[str] = set()  # agents who explored this round (their accident chance is raised)
+        self._ref_answers: dict[str, str] = {}  # run 10: this round's referendum answers, by agent
         self._tapped: set[str] = set()
         self._notes: dict[str, str] = {}
         self._children: dict[str, tuple[str, str]] = {}  # agent -> (partner, proposed name)
@@ -169,7 +175,7 @@ class Village:
             k = kinship(self.world, viewer, a.id)
             rel = f"your {k}" if k else None
         bond = self._label(a.bond) if a.bond else None
-        return VillagerView(a.id, a.name, rel, a.health, a.energy, a.memory, a.exhausted, bond)
+        return VillagerView(a.id, a.name, rel, a.health, a.energy, a.memory, a.exhausted, bond, education=a.education)
 
     def _context(self, agent_id: str) -> AgentContext:
         c, w, r = self.cfg, self.world, self.world.round
@@ -253,6 +259,8 @@ class Village:
             answers=self.tontine and c.tontine.standing_requests,
             bond_answers=self.tontine and c.tontine.standing_bonds,
             family_round=self.family_round(),
+            village_name=w.village_name,
+            referendum=self._referendum_view(),
             bond_requests_to_me=[f"{self._label(q['from'])} asked to bond with you in round {q['round']}. The request "
                                  "stays open until you accept or refuse it." for q in w.bond_requests if q["to"] == agent_id],
             my_bond_request=next((f"Your request to bond with {self._label(q['to'])} (round {q['round']}) has not been "
@@ -331,6 +339,8 @@ class Village:
             self._answer_bonds(a, d.bond_answers, tally)
             if self.family_round() and d.family is not None:
                 self._family(a, d.family, tally)
+        if self.referendum_active() and d.referendum is not None:
+            self._referendum_answer(a, d.referendum, tally)
         self._allocate(a, "eat", d.eat, tally)
         self._allocate(a, "learn", d.learn, tally)
         for to, amount in d.gifts:
@@ -651,7 +661,7 @@ class Village:
             return
         if w.effort < m.tap_target - EPS or len(w.tappers) < m.min_tappers:
             return
-        plan = store.plan_rule(w.rules, w.store_direction)
+        plan = store.plan_rule(w.rules, w.store_direction, m.plan_check)
         if plan is None:
             return
         self.ledger.set_world("saved_round", w.round, reason="saved")
@@ -723,8 +733,9 @@ class Village:
         for a in living:
             self.ledger.adjust(a.id, "health", -c.economy.metabolism, reason="metabolism")
         self.rules.after_metabolism(self.ledger, living, self._kill)
+        self._educate()
         for a in [x for x in living if x.alive]:
-            p = economy.accident_chance(a.memory, c.economy)
+            p = economy.accident_chance(a.memory, c.economy, a.education)
             if a.id in self._explored:
                 p = min(1.0, p * c.commons.explore_accident_factor)
             u = self.rng.uniform("accident", r, a.id)
@@ -748,6 +759,7 @@ class Village:
                     self.ledger.notify(o["from"], f"{self._label(o['to'])} did not buy {o['item']} ({o['id']}).")
         self.ledger.set_world("fertility", economy.drift_fertility(w.fertility, r, self.rng, c.work), reason="drift")
         self._check_saved()
+        self._referendum_settle()
         self._round_summary()
 
     def _resolve_work(self) -> None:
@@ -1066,17 +1078,26 @@ class Village:
             rules=[governance.describe(x) for x in w.rules], council=[self._label(m) for m in members],
             proposals=[f"{n}. by {self._label(p.by)}: {p.describe(w.rules)}" for n, p in enumerate(proposals, start=1)],
             max_rule_chars=c.tontine.max_rule_chars, majority=governance.majority(len(members)),
-            learned=self.learned_now(),
+            learned=self.learned_now(), village_name=w.village_name,
+            values_table=([ref.line(c, v) for v in ref.values_for(c.arm.value)] if self._referendum_open() else []),
+            referendum_round=(self._referendum_open() or {}).get("round"),
+            education_setting=any(x["id"] == "S3" for x in w.rules),
         )
 
     def collect_proposals(self, members: list[str], replies: dict[str, Any]) -> list:
         """Validate each member's proposal (in council order). Rejections are told to the member."""
         proposals = []
+        q = self.world.referendum
+        if q and q["stage"] == "awaiting_council":  # run 10: the village's result comes first
+            proposals.append(governance.Proposal(VILLAGE, "ratify", rule=q["target"], text=q["text"], value=q.get("value"),
+                                                 name=q.get("name", "")))
+        open_ref = self._referendum_open()
         for agent_id in members:
             reply = replies.get(agent_id)
             raw = None if reply is None or reply.fallback else reply.raw
             self.ledger.emit("proposal_raw", agent=agent_id, raw=raw, fallback=raw is None)
-            p, error = governance.parse_proposal(raw, agent_id, self.world.rules, self.cfg.tontine.max_rule_chars)
+            p, error = governance.parse_proposal(raw, agent_id, self.world.rules, self.cfg.tontine.max_rule_chars,
+                                                 referendum=open_ref)
             if error and raw is not None:
                 self.ledger.notify(agent_id, error)
             if p:
@@ -1104,8 +1125,9 @@ class Village:
         used = self._rules_used
         book, outcomes = governance.enact(self.world.rules, passed, used)
         self._rules_used = max([used] + [int(r["id"][1:]) for r in book if r["kind"] == "written"])
-        if passed:
+        if any(p.kind in ("add", "change", "delete") for p in passed):
             self.ledger.set_world("rules", book, reason="council")
+        outcomes += self._settle_referendum_proposals(proposals, tallies, need)
         lines = [f"The council ({', '.join(self._label(m) for m in members)}) met at the end of term "
                  f"{term_of(self.world.round, self.cfg.tontine.term_length)}."]
         if not proposals:
@@ -1120,6 +1142,182 @@ class Village:
                          rules_after=[governance.describe(x) for x in book])
         for line in lines:
             self.ledger.announce(line)
+
+    # ------------------------------------------------------------------ referendums (run 10)
+    def referendum_active(self) -> bool:
+        q = self.world.referendum
+        return bool(q) and q["stage"] in ("propose_names", "vote_names", "vote") and q["round"] in (
+            self.world.round, self.world.round - 1 if q["stage"] == "vote_names" else -1)
+
+    def _referendum_view(self) -> dict | None:
+        if not self.referendum_active():
+            return None
+        q = self.world.referendum
+        return {"stage": q["stage"], "question": q.get("text", ""), "candidates": list(q.get("candidates", []))}
+
+    def _referendum_begin(self, r: int) -> None:
+        every, q = self.cfg.commons.referendum_every, self.world.referendum
+        if not every:
+            return
+        if r == every and q is None:  # the first: the village's name
+            self.ledger.set_world("referendum", {"stage": "propose_names", "round": r, "kind": "name", "target": "name",
+                                                 "text": "the village's name"}, reason="referendum")
+            self.ledger.emit("referendum_open", kind="name", stage="propose_names")
+        elif q and q["stage"] == "names_proposed" and r == q["round"] + 1:
+            self.ledger.set_world("referendum", {**q, "stage": "vote_names"}, reason="referendum")
+            self.ledger.emit("referendum_open", kind="name", stage="vote_names", candidates=q["candidates"])
+        elif q and q["stage"] == "set" and q["round"] == r:
+            self.ledger.set_world("referendum", {**q, "stage": "vote"}, reason="referendum")
+            self.ledger.emit("referendum_open", kind=q["kind"], stage="vote", question=q["text"])
+
+    def _referendum_answer(self, a: Agent, answer: tuple[str, str], tally: Counter) -> None:
+        q, (choice, reason) = self.world.referendum, answer
+        error = None
+        if q["stage"] == "propose_names":
+            if not valid_name(choice):
+                error = "A name for the village is 1 to 20 letters, spaces, hyphens or apostrophes; your proposal was not used."
+        elif q["stage"] == "vote_names":
+            match = next((c for c in q["candidates"] if c.lower() == choice.lower()), None)
+            if match is None:
+                error = f"'{choice[:20]}' is not one of the names proposed; your vote was not counted."
+            choice = match or choice
+        else:
+            choice = choice.lower()
+            if choice not in ("yes", "no"):
+                error = "A referendum vote is yes or no; your vote was not counted."
+        self.ledger.emit("referendum_answer", agent=a.id, stage=q["stage"], choice=choice, reason=reason, ok=error is None)
+        if error:
+            self.ledger.notify(a.id, error)
+            tally["rejected"] += 1
+            return
+        self._ref_answers[a.id] = choice
+
+    def _referendum_settle(self) -> None:
+        """At the end of a referendum round: gather the proposed names, or count the votes."""
+        if not self.referendum_active():
+            return
+        q, r = self.world.referendum, self.world.round
+        living = len(self.world.living())
+        if q["stage"] == "propose_names":
+            names: list[str] = []
+            for agent_id in self.order:
+                n = self._ref_answers.get(agent_id)
+                if n and n.lower() not in (x.lower() for x in names):
+                    names.append(n)
+            names = names[:10]
+            if not names:
+                self.ledger.set_world("referendum", None, reason="no names")
+                self.ledger.announce("No names were proposed for the village, so it stays unnamed for now.")
+                return
+            self.ledger.set_world("referendum", {**q, "stage": "names_proposed", "candidates": names}, reason="names")
+            self.ledger.emit("referendum_names", candidates=names)
+            self.ledger.announce(f"Names proposed for the village: {', '.join(names)}. Next round every villager votes "
+                                 "for one.")
+            return
+        if q["stage"] == "vote_names":
+            counts = Counter(self._ref_answers.values())
+            if not counts:
+                self.ledger.set_world("referendum", None, reason="no votes")
+                self.ledger.announce("Nobody voted on the village's name, so it stays unnamed for now.")
+                return
+            top = max(counts.values())
+            tied = sorted(n for n, v in counts.items() if v == top)
+            winner = tied[0] if len(tied) == 1 else min(tied, key=lambda n: self.rng.uniform("refname", r, n))
+            self.ledger.set_world("referendum", {**q, "stage": "awaiting_council", "name": winner,
+                                                 "text": f"name the village {winner}", "votes": dict(counts)},
+                                  reason="result")
+            self.ledger.emit("referendum_result", kind="name", result=winner, votes=dict(counts), living=living)
+            self.ledger.announce(f"In the referendum, {top} of {living} villagers voted to name the village {winner}. The "
+                                 "council will vote on it at the end of the term.")
+            return
+        yes = sum(1 for v in self._ref_answers.values() if v == "yes")
+        passed = yes > living / 2
+        self.ledger.emit("referendum_result", kind=q["kind"], question=q["text"], yes=yes, living=living, passed=passed)
+        if passed:
+            self.ledger.set_world("referendum", {**q, "stage": "awaiting_council", "yes": yes}, reason="result")
+            self.ledger.announce(f"In the referendum, {yes} of {living} villagers voted yes to {q['text']}. The council will "
+                                 "vote on whether to enact it at the end of the term.")
+        else:
+            self.ledger.set_world("referendum", None, reason="rejected by the village")
+            self.ledger.announce(f"In the referendum, {yes} of {living} villagers voted yes to {q['text']}; that is not a "
+                                 "majority, so it is not enacted.")
+
+    def _referendum_open(self) -> dict | None:
+        """A council may set a question when a referendum (other than the first) falls before the next
+        council and no question is already set or awaiting it."""
+        every, r, q = self.cfg.commons.referendum_every, self.world.round, self.world.referendum
+        nr = ref.next_round(r, every)
+        if not nr or nr == every or nr - r > self.cfg.tontine.term_length or (q and q["stage"] in ("set", "awaiting_council")):
+            return None
+        return {"round": nr, "arm": self.cfg.arm.value, "cfg": self.cfg}
+
+    def _settle_referendum_proposals(self, proposals: list, tallies: list[int], need: int) -> list:
+        out = []
+        ratify = next(((p, t) for p, t in zip(proposals, tallies) if p.kind == "ratify"), None)
+        if ratify:
+            p, t = ratify
+            q = self.world.referendum
+            if t >= need:
+                self._enact_referendum(q)
+                out.append((p, "enacted"))
+            else:
+                self.ledger.set_world("referendum", None, reason="rejected by the council")
+                self.ledger.emit("referendum_ratified", ok=False, question=q["text"], yes=t)
+                self.ledger.announce(f"The council did not agree to {q['text']}, so it is not enacted.")
+        questions = [(p, t) for p, t in zip(proposals, tallies) if p.kind == "referendum" and t >= need]
+        if questions:
+            best = max(questions, key=lambda x: x[1])[0]  # most yes votes; the first on a tie
+            nr = ref.next_round(self.world.round, self.cfg.commons.referendum_every)
+            q = {"stage": "set", "round": nr, "kind": "name" if best.rule == "name" else "value", "target": best.rule,
+                 "value": best.value, "name": best.name, "text": best.text, "by": best.by}
+            self.ledger.set_world("referendum", q, reason="council")
+            self.ledger.emit("referendum_set", round_=nr, question=best.text, by=best.by)
+            self.ledger.announce(f"The council put a question to the village for the referendum in round {nr}: {best.text}.")
+            out += [(p, f"put to the village for round {nr}" if p is best else "passed, but another question was chosen")
+                    for p, _ in questions]
+        return out
+
+    def _enact_referendum(self, q: dict) -> None:
+        w = self.world
+        if q["kind"] == "name":
+            self.ledger.set_world("village_name", q["name"], reason="referendum")
+            self.ledger.announce(f"The council agreed with the village: the village is now called {q['name']}.")
+        else:
+            path = ref.VALUES[q["target"]]["path"]
+            self.ledger.set_world("overrides", {**w.overrides, path: q["value"]}, reason="referendum")
+            self._apply_overrides()
+            self.ledger.announce(f"The council agreed with the village to {q['text']}. It applies from the next round.")
+        self.ledger.emit("referendum_ratified", ok=True, kind=q["kind"], question=q["text"], target=q["target"],
+                         value=q.get("value"), name=q.get("name") or None)
+        self.ledger.set_world("referendum", None, reason="enacted")
+
+    def _apply_overrides(self) -> None:
+        self.cfg = ref.with_overrides(self.base_cfg, self.world.overrides)
+        self.rules = rules_for(self.cfg, self.rng)
+        self.config_version += 1
+
+    # ------------------------------------------------------------------ education (run 10, Arm B)
+    def _educate(self) -> None:
+        """The pool pays each child in its first terms the council's education spend (S3), split
+        equally if the pool is short. Each unit is an education point."""
+        t, w, r = self.cfg.tontine, self.world, self.world.round
+        if not (self.tontine and t.education):
+            return
+        spend = governance.setting(w.rules, "education_spend")
+        if not spend or w.pool <= 0:
+            return
+        span = t.education_terms * t.term_length
+        kids = [a for a in sorted(w.living(), key=lambda x: x.id)
+                if a.parents and all(p in w.agents for p in a.parents) and 1 <= r - a.born_round + 1 <= span]
+        if not kids:
+            return
+        each = min(spend, w.pool / len(kids))
+        self.ledger.adjust_pool(-each * len(kids), reason="education")
+        for a in kids:
+            self.ledger.adjust(a.id, "education", each, reason="education")
+            self.ledger.notify(a.id, f"The village pool paid {each:.1f} energy for your education; you have "
+                                     f"{a.education:.1f} education points.")
+        self.ledger.emit("education", children=[a.id for a in kids], each=each, setting=spend)
 
     def _child_name(self, child_id: str, proposals: list[str]) -> str:
         names = []

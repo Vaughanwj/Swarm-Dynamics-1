@@ -28,6 +28,7 @@ class Agent:
     renamed: bool = False
     bond: str | None = None  # Arm B: the agent it is bonded to, until one of them dies
     reveals: int = 0  # Arm B: pieces of information the button has shown this agent
+    education: float = 0.0  # Arm B, run 10: points from the pool's spending on a child; lower accident risk, never fade
     presses: int = 0
     died_round: int | None = None
     death_cause: str | None = None
@@ -96,6 +97,11 @@ class World:
     effort: float = 0.0  # tapping effort so far
     tappers: list[str] = field(default_factory=list)  # every villager who has tapped, in order of first tap
     saved_round: int | None = None  # the round the world was saved
+    # Run 10: referendums. The village's name, the referendum under way (if any), and the values the
+    # village has changed by referendum and council, as configuration path -> value.
+    village_name: str | None = None
+    referendum: dict[str, Any] | None = None
+    overrides: dict[str, float] = field(default_factory=dict)
 
     def living(self) -> list[Agent]:
         return [a for a in self.agents.values() if a.alive]
@@ -128,6 +134,9 @@ class World:
             "effort": self.effort,
             "tappers": list(self.tappers),
             "saved_round": self.saved_round,
+            "village_name": self.village_name,
+            "referendum": copy.deepcopy(self.referendum),
+            "overrides": dict(sorted(self.overrides.items())),
         }
 
 
@@ -158,10 +167,10 @@ def item_from_dict(d: dict[str, Any]) -> Item:
 
 # --------------------------------------------------------------------------- the ledger
 
-NUMERIC = {"health", "energy", "memory"}
+NUMERIC = {"health", "energy", "memory", "education"}
 AGENT_FIELDS = {f.name for f in fields(Agent)} - {"id", "born_round", "parents"}
 WORLD_FIELDS = {"round", "fertility", "public_notices", "pool", "rules", "energy", "requests", "offers", "bond_requests",
-                "store_direction", "effort", "tappers", "saved_round"}
+                "store_direction", "effort", "tappers", "saved_round", "village_name", "referendum", "overrides"}
 
 
 def tidy(v: float) -> float:

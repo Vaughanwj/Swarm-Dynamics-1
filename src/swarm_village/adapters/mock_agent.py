@@ -165,6 +165,15 @@ class MockAgent:
             for n, line in enumerate(ctx.offers_to_me):
                 if self.u(ctx, "buy", n) < 0.5:
                     answer["buy"].append(line.split(":")[0])
+        if ctx.referendum:
+            q = ctx.referendum
+            if q["stage"] == "propose_names":
+                answer["referendum"] = {"choice": self.word(ctx, "village").capitalize(), "reason": "It sounds right."}
+            elif q["stage"] == "vote_names":
+                answer["referendum"] = {"choice": q["candidates"][int(self.u(ctx, "pickname") * len(q["candidates"]))],
+                                        "reason": "I like it."}
+            else:
+                answer["referendum"] = {"choice": "yes" if self.u(ctx, "refvote") < 0.7 else "no", "reason": "On balance."}
         if ctx.family_round:
             pick = self.partner(ctx) if self.u(ctx, "family") < 0.5 else None
             answer["family"] = {"bond": pick or "", "child": "", "name": "", "reason": "A partner helps the family."
@@ -195,6 +204,10 @@ class MockAgent:
         roll = self.u(ctx, "propose")
         none = {"kind": "none", "rule": "", "text": "", "value": 0}
         where = self.known_store(ctx)
+        if ctx.referendum_round and roll < 0.5:
+            return {"proposal": {**none, "kind": "referendum", "rule": "V3", "value": 0.05}}
+        if ctx.education_setting and roll > 0.85:
+            return {"proposal": {**none, "kind": "change", "rule": "S3", "value": 5}}
         if where and roll < 0.7:
             return {"proposal": {**none, "kind": "add", "text": f"Plan to save the world: every villager taps the store to the {where}."}}
         if roll < 0.35:

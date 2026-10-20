@@ -16,6 +16,7 @@ class VillagerView:
     memory: float
     exhausted: bool
     bond: str | None = None  # Arm B: the label of the villager it is bonded to
+    education: float = 0.0  # Arm B, run 10
 
 
 @dataclass(frozen=True)
@@ -94,6 +95,12 @@ class AgentContext:
     answers: bool = False  # Arm B, standing requests: the answer has a child_answers field
     bond_answers: bool = False  # Arm B, run 9: standing bond requests; the answer has a bond_answers field
     family_round: bool = False  # Arm B, run 9: this round asks about family; the answer has a family field
+    # Run 10
+    village_name: str | None = None
+    referendum: dict | None = None  # this round's referendum: stage, question, candidates; the answer has a referendum field
+    values_table: list[str] = field(default_factory=list)  # council: the village values a referendum may change
+    referendum_round: int | None = None  # council: the referendum this council may set a question for
+    education_setting: bool = False  # council (Arm B): the rule book has S3
     bond_requests_to_me: list[str] = field(default_factory=list)
     my_bond_request: str | None = None
     trade: bool = False  # items read may be passed on; the answer has pass_on and buy fields

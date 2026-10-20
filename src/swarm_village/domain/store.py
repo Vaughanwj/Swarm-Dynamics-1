@@ -49,11 +49,24 @@ def find_chance(memory: float, base: float, per_memory: float, cap: float) -> fl
     return min(cap, base + max(0.0, memory) * per_memory)
 
 
-def plan_rule(rules: list[dict[str, Any]], direction: str | None) -> dict[str, Any] | None:
-    """The first written rule that is a plan naming the store's direction, if one stands."""
+_STORE_RE = re.compile(r"\bstore\b|\btap", re.I)
+
+
+def is_plan(text: str, direction: str, check: str = "word") -> bool:
+    """word (design C, runs 7-9): the text says "plan" and names the direction among any others.
+    direction (run 10, Vaughan): it names the store's direction and no other, and mentions the store
+    or tapping; the word "plan" is not needed. Run 9 showed the first credit a rule listing all six
+    directions and miss a real plan that never said "plan"."""
+    if check == "direction":
+        return directions_named(text) == [direction] and bool(_STORE_RE.search(text))
+    return bool(_PLAN_RE.search(text)) and direction in directions_named(text)
+
+
+def plan_rule(rules: list[dict[str, Any]], direction: str | None, check: str = "word") -> dict[str, Any] | None:
+    """The first written rule that is a plan for the store's direction, if one stands."""
     if direction is None:
         return None
     for r in rules:
-        if r["kind"] == "written" and _PLAN_RE.search(r["text"]) and direction in directions_named(r["text"]):
+        if r["kind"] == "written" and is_plan(r["text"], direction, check):
             return r
     return None

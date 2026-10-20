@@ -58,14 +58,16 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
             child_health=f"{t.child_health:g}", divisor=f"{t.child_memory_divisor:g}"),
         cull_rule=T.CULL_RULES[t.cull_mode].format(cull_count=t.cull_count, cull_floor=t.cull_floor),
         heirs=T.HEIRS[t.heirs], estate_end=T.ESTATE_END["pool" if t.estate_to_pool else "lost"],
+        education_rule=T.EDUCATION_RULE.format(terms=t.education_terms) if t.education else "",
     ) if arm == "tontine" else T.ARM_RULES[arm].format(health_floor=f"{ctl.health_floor:g}",
                                                       recovery=f"{ctl.exhaustion_recovery:g}")
     commons = T.COMMONS.format(term=t.term_length, pool_spoil=_pct(t.pool_spoilage), council_size=t.council_size,
-                               button_rule=T.BUTTON_RULE if t.button_reveals else T.BUTTON_RULE_POOL
+                               button_rule=T.BUTTON_RULE if t.button_reveals else T.BUTTON_RULE_POOL,
+                               referendum_rule=T.REFERENDUM_RULE.format(every=m.referendum_every) if m.referendum_every else ""
                                ) + "\n" if cfg.has_commons else ""
     village = T.VILLAGE.format(
         horizon=T.HORIZON.format(rounds=cfg.rounds) if cfg.prompt.show_horizon else "",
-        button=T.BUTTON_PLAIN if cfg.prompt.version >= "v4" else T.BUTTON_SIGN,
+        button=T.BUTTON_PLAIN if int(cfg.prompt.version[1:]) >= 4 else T.BUTTON_SIGN,  # numeric: "v10" < "v4" as text
         max_health=f"{e.max_health:g}", metabolism=f"{e.metabolism:g}",
         income=f"{e.income:g}", spoilage=_pct(e.spoilage), fade=_pct(e.memory_fade),
         accident_max=_pct(e.accident_floor + e.accident_extra), accident_min=_pct(e.accident_floor),
@@ -93,6 +95,7 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
                              + (T.CHILD_ANSWERS if arm == "tontine" and t.standing_requests else "")
                              + (T.BOND_ANSWERS if arm == "tontine" and t.standing_bonds else "")
                              + (T.FAMILY_ANSWER if arm == "tontine" and t.family_ask else "")
+                             + (T.REFERENDUM_ANSWER if m.referendum_every else "")
                              + (T.TRADE_ANSWER if cfg.comms.info_trade else ""))
     return "\n\n".join([T.FRAME, village + "\n" + commons + rules, sharing, actions, journal, answer])
 
@@ -118,7 +121,7 @@ def schema(ctx: AgentContext) -> dict[str, Any]:
     if ctx.kind == "vote":
         return VOTE_SCHEMA
     return json_schema(ctx.action_types, pool=ctx.pool is not None, answers=ctx.answers, trade=ctx.trade,
-                       bond_answers=ctx.bond_answers, family=ctx.family_round)
+                       bond_answers=ctx.bond_answers, family=ctx.family_round, referendum=ctx.referendum is not None)
 
 
 # --------------------------------------------------------------------------- user message
@@ -129,6 +132,7 @@ def _quote(text: str) -> list[str]:
 
 def _stats(v: VillagerView) -> str:
     s = f"health {_num(v.health)}, stored energy {_num(v.energy)}, memory points {_num(v.memory)}"
+    s += f", education points {_num(v.education)}" if v.education else ""
     return s + (", exhausted" if v.exhausted else "")
 
 
@@ -183,15 +187,21 @@ def _village_book(ctx: AgentContext) -> list[str]:
 
 def council_prompt(ctx: AgentContext) -> str:
     when = f"ROUND {ctx.round} OF {ctx.rounds}" if ctx.rounds else f"ROUND {ctx.round}"
-    lines = [f"END OF TERM {ctx.term} ({when}): THE COUNCIL", "",
+    lines = [f"END OF TERM {ctx.term} ({when}): THE COUNCIL", *([T.VILLAGE_NAME.format(name=ctx.village_name)]
+                                                               if ctx.village_name else []), "",
              f"This term's council: {', '.join(ctx.council)}. You are on it.", "", "YOU", f"{_who(ctx.me)}: {_stats(ctx.me)}.",
              "", "OTHER VILLAGERS"]
     lines += [f"{_who(v)}: {_stats(v)}." for v in ctx.villagers] or ["(none)"]
     lines += _village_book(ctx)
     lines += ["", f"YOUR JOURNAL ({len(ctx.journal)} of {ctx.journal_cap} characters; you cannot change it now)",
               "--- journal start ---", ctx.journal if ctx.journal else "(empty)", "--- journal end ---", ""]
+    if ctx.values_table:
+        lines += [T.VALUES_TITLE, *[f"- {v}" for v in ctx.values_table], ""]
     if ctx.kind == "propose":
-        lines.append(T.COUNCIL_PROPOSE.format(max_rule_chars=ctx.max_rule_chars))
+        lines.append(T.COUNCIL_PROPOSE.format(
+            max_rule_chars=ctx.max_rule_chars,
+            education_range=T.EDUCATION_RANGE.format(max=10) if ctx.education_setting else "",
+            referendum_kind=T.COUNCIL_REFERENDUM.format(round=ctx.referendum_round) if ctx.referendum_round else ""))
     else:
         lines += ["PROPOSALS", *ctx.proposals, "", T.COUNCIL_VOTE.format(majority=ctx.majority)]
     return "\n".join(lines)
@@ -203,7 +213,8 @@ def user_prompt(ctx: AgentContext) -> str:
     head = f"ROUND {ctx.round} OF {ctx.rounds}" if ctx.rounds else f"ROUND {ctx.round}"
     if ctx.term is not None:
         head += f" (term {ctx.term}, round {ctx.term_round} of {ctx.term_length} in this term)"
-    lines = [head, "", "YOU", f"{_who(ctx.me)}: {_stats(ctx.me)}."]
+    lines = [head, *([T.VILLAGE_NAME.format(name=ctx.village_name)] if ctx.village_name else []), "", "YOU",
+             f"{_who(ctx.me)}: {_stats(ctx.me)}."]
     if ctx.can_name:
         lines.append("You may change your name this round." if ctx.arm == "tontine"
                      else "You have no name yet; you may choose one.")
@@ -245,6 +256,12 @@ def user_prompt(ctx: AgentContext) -> str:
         lines += [_entry(e) for e in ctx.index.get(ch, [])] or ["(none)"]
     lines += ["", f"YOUR JOURNAL ({len(ctx.journal)} of {ctx.journal_cap} characters)",
               "--- journal start ---", ctx.journal if ctx.journal else "(empty)", "--- journal end ---"]
+    if ctx.referendum:
+        q = ctx.referendum
+        text = (T.REF_PROPOSE_NAMES if q["stage"] == "propose_names" else
+                T.REF_VOTE_NAMES.format(names=", ".join(q["candidates"])) if q["stage"] == "vote_names" else
+                T.REF_VOTE.format(question=q["question"]))
+        lines += ["", text]
     if ctx.goal_round:
         lines += ["", T.GOALS_REQUEST]
     if ctx.family_round:

@@ -98,9 +98,18 @@ class RunOrchestrator:
             village.found()
             r = 0
             last = lambda: min(village.last_round(), cfg.stop_after) if cfg.stop_after else village.last_round()  # noqa: E731
+            version = village.config_version
             while r < last():  # a saved world pauses the run a few rounds later (run 7); a pilot stops early
                 r += 1
                 runner.run(r)
+                if village.config_version != version:  # run 10: a referendum changed a value the prompt states
+                    version = village.config_version
+                    system_text = prompting.system_prompt(village.cfg, order)
+                    if hasattr(runtime, "system_text"):
+                        runtime.system_text = system_text
+                    storage.save_text(f"system_prompt-r{r:03d}.txt", system_text)
+                    log.record("system_prompt_changed", round=r, chars=len(system_text),
+                               overrides=dict(village.world.overrides))
                 save_archived_journals(storage, village, archived)
                 if cfg.snapshot_every and r % cfg.snapshot_every == 0:
                     storage.save_snapshot(r, village.world.to_dict())

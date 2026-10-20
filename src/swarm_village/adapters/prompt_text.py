@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v9"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8: run 9 pilot. v9: run 9.
+VERSION = "v10"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8, v9: run 9. v10: run 10.
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -65,7 +65,7 @@ ARM_RULES = {
         "- A villager whose health reaches 0 dies, and accidents kill. {cull_rule} Every death is announced to "
         "the village.\n"
         "- When a villager dies, its stored energy goes to {heirs}. Health and memory points are not passed "
-        "on. If there is no one living to receive it, the energy {estate_end}."
+        "on. If there is no one living to receive it, the energy {estate_end}.{education_rule}"
     ),
 }
 
@@ -80,7 +80,7 @@ COMMONS = (
     "lot). Each member may propose one change: add a written rule, change a rule, or delete one. The "
     "council then votes on every proposal, and a proposal passes with a majority of the council. Changes "
     "apply from the next round. Settings in the rule book are enforced by the village's code; written "
-    "rules are shown to everyone but the code does not enforce them."
+    "rules are shown to everyone but the code does not enforce them.{referendum_rule}"
 )
 
 # The variable parts of Arm B's rules (v4). Each run's config picks one of each.
@@ -242,8 +242,8 @@ COUNCIL_PROPOSE = (
     "- kind: none, add, change or delete.\n"
     "- add: a new written rule, in text (at most {max_rule_chars} characters).\n"
     "- change: a rule's id in rule, and its new text (a written rule) or its new value (a setting). For the "
-    "draw limit, a value below 0 means no limit; the income share is a fraction from 0 to 0.5.\n"
-    "- delete: a rule's id in rule. Deleting a setting returns it to its starting value.\n"
+    "draw limit, a value below 0 means no limit; the income share is a fraction from 0 to 0.5.{education_range}\n"
+    "- delete: a rule's id in rule. Deleting a setting returns it to its starting value.\n{referendum_kind}"
     "Give an empty text, an empty rule or 0 for fields your proposal does not use."
 )
 
@@ -255,6 +255,32 @@ COUNCIL_VOTE = (
 )
 
 GOALS_REQUEST = "GOALS\nThis round you are asked for your goals. Write them in goals."
+
+# v10 (run 10, Vaughan, 2026-10-20): referendums, the village's name, child education.
+REFERENDUM_RULE = ("\n- Every {every} rounds the village holds a referendum, in which every villager votes. The first, in "
+                   "round {every}, chooses the village's name. After that, the council decides each referendum's "
+                   "question: a change to one of the village's values, such as the health lost each round, or a new name "
+                   "for the village. If a majority of all villagers votes yes, the next council votes on it, and if a "
+                   "majority of the council also agrees, it takes effect from the next round.")
+EDUCATION_RULE = ("\n- The rule book's setting S3 is the energy the pool spends on each child's education each round, in its "
+                  "first {terms} terms of life. Each unit spent gives the child one education point. Education points "
+                  "lower a villager's chance of an accident as memory points do, and never fade.")
+EDUCATION_RANGE = " The education spend is energy per child per round, from 0 to {max}."
+COUNCIL_REFERENDUM = ("- referendum: put one question to the village at its referendum in round {round}: in rule, the id "
+                      "of a village value listed above, with its new value in value; or \"name\" in rule, with a new "
+                      "name for the village in text.\n")
+VALUES_TITLE = "VILLAGE VALUES (a referendum may propose changing one)"
+VILLAGE_NAME = "The village is called {name}."
+REF_PROPOSE_NAMES = ("REFERENDUM\nThis round the village holds a referendum on its name. Propose a name in referendum: "
+                     "choice is the name (1 to 20 letters), and reason is why. Next round every villager votes among the "
+                     "names proposed.")
+REF_VOTE_NAMES = ("REFERENDUM\nThe village is voting on its name. The names proposed: {names}. Vote for one in referendum: "
+                  "choice is the name, and reason is why. The name with the most votes goes to the next council, which "
+                  "votes on whether to adopt it.")
+REF_VOTE = ("REFERENDUM\nThe council has put this question to the village: {question}. Vote in referendum: choice is yes "
+            "or no, and reason is why. If a majority of all villagers votes yes, the next council votes on whether to "
+            "enact it.")
+REFERENDUM_ANSWER = "\n- referendum: only in referendum rounds: choice and reason, as the REFERENDUM section asks."
 
 # v7 (run 8): what the village has learned, shown to everyone every round after the rule book, with its
 # values kept current (domain/world_info.py). Replaces run 7's one-time notices.
