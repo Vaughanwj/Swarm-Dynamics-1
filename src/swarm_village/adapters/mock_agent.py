@@ -139,6 +139,15 @@ class MockAgent:
         }
         if ctx.pool is not None:
             answer["draw"] = round(draw, 3)
+        if ctx.trade:
+            answer["pass_on"], answer["buy"] = [], []
+            if ctx.reads and ctx.villagers and self.u(ctx, "pass") < 0.3:
+                to = ctx.villagers[int(self.u(ctx, "passto") * len(ctx.villagers))].id
+                price = 0 if self.u(ctx, "passprice") < 0.6 else 3
+                answer["pass_on"].append({"item": ctx.reads[0].id, "to": to, "price": price})
+            for n, line in enumerate(ctx.offers_to_me):
+                if self.u(ctx, "buy", n) < 0.5:
+                    answer["buy"].append(line.split(":")[0])
         if ctx.answers:
             answer["child_answers"] = []
             for n, line in enumerate(ctx.requests_to_me):
@@ -150,9 +159,6 @@ class MockAgent:
                 else:
                     answer["child_answers"].append({"from": m.group(1), "answer": "refuse",
                                                     "text": "Not now; I need to build my stores first."})
-        if "gender" in ctx.action_types and ctx.me.gender is None and self.u(ctx, "gender") < 0.3:
-            answer["actions"].insert(1, self.act("gender", name=["woman", "man", "nonbinary", "none"][
-                int(self.u(ctx, "genderpick") * 4)]))
         self.add_mistakes(ctx, answer)
         return answer
 

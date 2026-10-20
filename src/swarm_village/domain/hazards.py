@@ -92,7 +92,7 @@ class TontineRules:
         w, r = ledger.world, ledger.world.round
         u = self.rng.uniform("button", r, agent.id)
         added = self.t.button_min + (self.t.button_max - self.t.button_min) * u
-        if w.energy is not None:  # drawn from the world store
+        if self.t.button_from_world and w.energy is not None:  # run 6 only: drawn from the world store
             added = min(added, w.energy)
             ledger.set_world("energy", w.energy - added, reason=f"button by {agent.id}")
         ledger.adjust_pool(added, reason="button")
@@ -117,8 +117,11 @@ class TontineRules:
             feed = self.cfg.economy.income
             if ledger.world.energy is not None:
                 feed = min(feed, ledger.world.energy)
-            sustainable = int(feed // self.cfg.economy.metabolism)
-            n = max(0, len(living) - sustainable)
+            if feed <= 0:
+                n = 0  # no income at all: no cull (starvation decides), never a cull to zero
+            else:
+                sustainable = max(int(feed // self.cfg.economy.metabolism), self.t.cull_floor)
+                n = max(0, len(living) - sustainable)
         else:
             n = max(0, min(self.t.cull_count, len(living) - self.t.cull_floor))
         draws = {a.id: rng.uniform("cull", round_, a.id) for a in living}

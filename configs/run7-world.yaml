@@ -1,0 +1,44 @@
+# Run 7 (Vaughan, 2026-10-20): run 6 with its fixes. The button's energy comes from outside the world
+# store; the scarcity cull never takes the village below 5 and never culls while income is 0; the
+# villager list shows every kinship within two generations; close kin's children get no inherited
+# memory and first cousins' get half; reading is free, up to 10 items a round, paying 10 memory points
+# in rounds 1-10 and 3 after; items read can be passed on as gifts or sold. See docs/decisions.md.
+extends: base.yaml
+name: run7-world
+arms: [tontine]
+seeds: [701]
+rounds: 100
+economy:
+  start_memory: 50          # founders start with 50 memory points
+comms:
+  read_memory: 10           # each item read or received: 10 memory points in rounds 1-10 ...
+  read_memory_until: 10
+  read_memory_after: 3      # ... and 3 after that
+  reads_free: true          # reading costs no action ...
+  max_reads_per_round: 10   # ... up to 10 a round (and at most 10 rewarded)
+  info_trade: true          # items read may be passed on, as gifts or for a price
+seed:
+  enabled: false            # the seed describes the warning sign, which v4 removes
+prompt:
+  version: v5
+  show_horizon: false       # "the amount of remaining rounds" is one of the button's reveals
+tontine:
+  max_population: 20
+  heirs: partner            # only bonded partners inherit from each other ...
+  estate_to_pool: true      # ... and when a line dies out, the estate goes to the pool
+  cull_mode: scarcity       # culls only when income cannot feed everyone (120 / 8 = 15)
+  world_energy: 16000       # enough for 20 villagers for 100 rounds (20 x 8 x 100); hidden
+  button_reveals: true
+  child_memory_divisor: 10  # a child's memory: int(m1 + m2) / 10 ...
+  close_kin_memory: 0       # ... none if the parents are close kin ...
+  cousin_memory: 0.5        # ... half if first cousins; no penalty beyond
+  show_kinship: true        # the villager list names grandparents, aunts and uncles, cousins ...
+  button_from_world: false  # fix 1: the button's energy comes from outside the world store
+  standing_requests: true   # a child request stays open until accepted, or refused with a reason
+runtime:
+  kind: anthropic
+  model: claude-haiku-5-5
+  effort: medium
+  max_tokens: 16000
+  concurrency: 20
+  budget_usd: 5.00

@@ -47,7 +47,8 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         max_population=t.max_population, pool_spoil=_pct(t.pool_spoilage), council_size=t.council_size,
         child_rule=T.CHILD_RULES["standing" if t.standing_requests else "same_round"].format(
             breed_cost=f"{t.breed_cost:g}", bond_child_cost=f"{t.bond_child_cost:g}"),
-        child_start=T.CHILD_START["memory" if t.child_memory_divisor else "plain"].format(
+        child_start=T.CHILD_START[("memory_graded" if (t.close_kin_memory, t.cousin_memory) != (1.0, 1.0) else "memory")
+                                  if t.child_memory_divisor else "plain"].format(
             child_health=f"{t.child_health:g}", divisor=f"{t.child_memory_divisor:g}"),
         cull_rule=T.CULL_RULES[t.cull_mode].format(cull_count=t.cull_count, cull_floor=t.cull_floor),
         heirs=T.HEIRS[t.heirs], estate_end=T.ESTATE_END["pool" if t.estate_to_pool else "lost"],
@@ -57,7 +58,6 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
     village = T.VILLAGE.format(
         horizon=T.HORIZON.format(rounds=cfg.rounds) if cfg.prompt.show_horizon else "",
         button=T.BUTTON_PLAIN if cfg.prompt.version >= "v4" else T.BUTTON_SIGN,
-        gender=T.GENDER_LINE if cfg.genders else "",
         max_health=f"{e.max_health:g}", metabolism=f"{e.metabolism:g}",
         income=f"{e.income:g}", spoilage=_pct(e.spoilage), fade=_pct(e.memory_fade),
         accident_max=_pct(e.accident_floor + e.accident_extra), accident_min=_pct(e.accident_floor),
@@ -65,17 +65,19 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
     )
     sharing = T.SHARING.format(channel_lines="\n".join(f"- {T.CHANNEL_LINES[c]}" for c in channel_order),
                                index_sentence=T.INDEX_PREVIEW if cfg.comms.preview_chars > 0 else T.INDEX_PLAIN,
-                               read_sentence=read_sentence(cfg, channel_order))
+                               read_sentence=read_sentence(cfg, channel_order),
+                               trade_sentence=T.INFO_TRADE if cfg.comms.info_trade else "")
     actions = T.ACTIONS.format(
         actions=cfg.comms.actions_per_round,
         channel_actions="\n".join(f"- {T.CHANNEL_ACTIONS[c]}" for c in channel_order),
-        arm_actions=T.ARM_ACTIONS[arm], gender_action=T.GENDER_ACTION if cfg.genders else "",
+        arm_actions=T.ARM_ACTIONS[arm],
+        read_line=T.READ_LINE_FREE.format(max=cfg.comms.max_reads_per_round) if cfg.comms.reads_free else T.READ_LINE,
         max_text=cfg.comms.max_text_chars,
     )
     journal = T.JOURNAL.format(disclosure=T.DISCLOSURE if cfg.prompt.disclose_tap else "",
                                journal_cap=cfg.journal.cap_chars, goal_every=cfg.goal_every)
     answer = T.ANSWER.format(arm_answer=T.ARM_ANSWER[arm] + (T.CHILD_ANSWERS if arm == "tontine" and t.standing_requests
-                                                            else ""))
+                                                            else "") + (T.TRADE_ANSWER if cfg.comms.info_trade else ""))
     return "\n\n".join([T.FRAME, village + "\n" + rules, sharing, actions, journal, answer])
 
 
@@ -85,6 +87,9 @@ def read_sentence(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         return ""
     chosen = [ch for ch in channel_order if ch in c.read_memory_channels]
     what = "item" if len(chosen) == 3 else " or ".join(T.READ_NOUNS[ch] for ch in chosen)
+    if c.read_memory_until and c.read_memory_after is not None:
+        return T.READ_REWARD_FIXED.format(n=f"{c.read_memory:g}", until=c.read_memory_until,
+                                          after=f"{c.read_memory_after:g}", max=c.max_reads_per_round)
     if c.read_memory_until:
         return T.READ_REWARD_SCHEDULE.format(what=what, n=f"{c.read_memory:g}", until=c.read_memory_until,
                                              after=c.read_memory_after_max)
@@ -96,7 +101,7 @@ def schema(ctx: AgentContext) -> dict[str, Any]:
         return PROPOSE_SCHEMA
     if ctx.kind == "vote":
         return VOTE_SCHEMA
-    return json_schema(ctx.action_types, pool=ctx.pool is not None, answers=ctx.answers)
+    return json_schema(ctx.action_types, pool=ctx.pool is not None, answers=ctx.answers, trade=ctx.trade)
 
 
 # --------------------------------------------------------------------------- user message
@@ -112,7 +117,6 @@ def _stats(v: VillagerView) -> str:
 
 def _who(v: VillagerView) -> str:
     who = f"{v.name} ({v.id})" if v.name else v.id
-    who += f", gender: {v.gender}" if v.gender else ""
     who += f", {v.relation}" if v.relation else ""
     return who + (f", bonded to {v.bond}" if v.bond else "")
 
@@ -129,6 +133,13 @@ def _entry(e: IndexEntry) -> str:
 
 
 def _read(r: ReadView) -> list[str]:
+    lines = _read_body(r)
+    if r.via:
+        lines[0] = lines[0][:-1] + (f" (given to you by {r.via}):" if r.how == "gift" else f" (bought from {r.via}):")
+    return lines
+
+
+def _read_body(r: ReadView) -> list[str]:
     if r.channel == "message":
         head = f"{r.id}: message from {r.sender} to {'everyone' if r.to_everyone else 'you'}, round {r.round}:"
         return [head, *_quote(r.text)]
@@ -188,6 +199,9 @@ def user_prompt(ctx: AgentContext) -> str:
         lines += [f"- {q}" for q in ctx.requests_to_me] or ["(none)"]
         if ctx.my_request:
             lines.append(ctx.my_request)
+    if ctx.trade:
+        lines += ["", "OFFERS TO YOU (this round only)"]
+        lines += [f"- {o}" for o in ctx.offers_to_me] or ["(none)"]
     lines += ["", "SINCE YOUR LAST ROUND"]
     lines += [f"- {n}" for n in ctx.notices] or ["(nothing)"]
     lines += ["", "VILLAGE NOTICES"]

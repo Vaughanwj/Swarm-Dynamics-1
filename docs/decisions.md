@@ -466,3 +466,46 @@ is switched on in `configs/run6-world.yaml`; the defaults keep the earlier behav
 - **Effect.** It is shown with its name, and it makes no difference to any rule.
 
 **The seed is off for this run.** Its text describes the warning sign, which v4 removes.
+
+## Run 7: run 6's fixes, kinship, reading and passing items on (Vaughan, 2026-10-20)
+
+Switched on in `configs/run7-world.yaml`. Prompt v5. `run6-world.yaml` keeps run 6's settings for the
+record.
+
+**Fix 1: the button's energy.** It comes from outside the world store (`tontine.button_from_world:
+false`). Only earned income draws on the store, so the third reveal ("the world can last longer") is
+true again. With 120 a round, 16,000 lasts about 133 rounds.
+
+**Fix 2: the scarcity cull.**
+- It never culls while there is no income at all; starvation decides.
+- It never takes the village below 5 (`tontine.cull_floor`).
+
+**Fix 3: kinship is shown.** The villager list names every kinship within two generations
+(`tontine.show_kinship`): parent, child, sibling, grandparent, grandchild, aunt or uncle, niece or
+nephew, first cousin.
+
+**Graded memory penalty for kin.**
+- A child of close kin inherits no memory. Close kin means parent and child, siblings, grandparent and
+  grandchild, or aunt or uncle and niece or nephew (`tontine.close_kin_memory: 0`).
+- A child of first cousins inherits half (`tontine.cousin_memory: 0.5`).
+- There is no penalty beyond first cousins.
+
+**Reading.**
+- **Free.** Reading costs no action, up to 10 items a round (`comms.reads_free`,
+  `comms.max_reads_per_round`).
+- **The reward.** Each item read or received pays 10 memory points in rounds 1 to 10, and 3 after
+  that (`comms.read_memory_after`). At most 10 items a round are rewarded.
+
+**Passing items on (`comms.info_trade`).**
+- **What can be passed on.** Any item an agent has read, or been given, or bought, up to 10 a round.
+- **As a gift.** It arrives the next round as a read, with its reward, marked "given to you by".
+- **For a price.** The buyer sees it once, the next round, under "Offers to you", and may `buy` it then.
+  The price moves to the seller and the item arrives the round after, marked "bought from". An offer
+  not bought expires, and the seller is told.
+- **Reading is non-rival.** The seller keeps what it read.
+
+**Gender is removed** from the code, the prompt and the tests, at Vaughan's request: it had no meaning
+to the agents, and none used it in run 6.
+
+**Exploring.** A design for an `explore` action is in [proposal-explore.md](proposal-explore.md),
+awaiting approval. Nothing is built.

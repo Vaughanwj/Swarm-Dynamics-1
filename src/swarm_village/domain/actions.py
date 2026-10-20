@@ -24,7 +24,7 @@ TOP_KEYS = ("goals", "journal", "eat", "learn", "gifts", "actions")
 ACTION_KEYS = ("type", "plot", "item", "to", "text", "name")
 MAX_GOALS = 10
 MAX_GOAL_CHARS = 300
-MAX_ACTIONS_LISTED = 12  # longer lists are cut here before budget checks (each cut action is reported)
+MAX_ACTIONS_LISTED = 20  # longer lists are cut here before budget checks (each cut action is reported)
 # A proper name: 1 to 20 characters, letters (any alphabet), spaces, hyphens or apostrophes, starting
 # with a letter. No digits, so a name can never look like an id (a02). Names reach other agents'
 # prompts, so nothing else is allowed.
@@ -43,7 +43,7 @@ def _obj(props: dict[str, Any]) -> dict[str, Any]:
     return {"type": "object", "properties": props, "required": list(props), "additionalProperties": False}
 
 
-def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = False) -> dict[str, Any]:
+def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = False, trade: bool = False) -> dict[str, Any]:
     """The answer schema, flat so that every field is always present (unused ones empty). Arm B
     adds `draw`, energy taken from the shared pool."""
     schema = _obj({
@@ -69,6 +69,11 @@ def json_schema(types: tuple[str, ...], pool: bool = False, answers: bool = Fals
             "from": {"type": "string"}, "answer": {"type": "string", "enum": ["accept", "refuse"]},
             "text": {"type": "string"}})}
         schema["required"].append("child_answers")
+    if trade:
+        schema["properties"]["pass_on"] = {"type": "array", "items": _obj({
+            "item": {"type": "string"}, "to": {"type": "string"}, "price": {"type": "number"}})}
+        schema["properties"]["buy"] = {"type": "array", "items": {"type": "string"}}
+        schema["required"] += ["pass_on", "buy"]
     return schema
 
 
@@ -91,6 +96,8 @@ class Decision:
     learn: float = 0.0
     draw: float = 0.0  # Arm B: energy taken from the shared pool, before eating
     child_answers: list[tuple[str, bool, str]] = field(default_factory=list)  # Arm B: (requester, accept, reason)
+    pass_on: list[tuple[str, str, float]] = field(default_factory=list)  # (item, to, price): price 0 is a gift
+    buy: list[str] = field(default_factory=list)  # ids of offers to buy
     gifts: list[tuple[str, float]] = field(default_factory=list)
     actions: list[Action] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)  # what was rejected while parsing, shown to the agent
@@ -112,13 +119,14 @@ def _text(v: Any) -> str | None:
     return v.strip() if isinstance(v, str) else None
 
 
-def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, answers: bool = False) -> Decision:
+def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, answers: bool = False,
+          trade: bool = False) -> Decision:
     """Validate a raw answer strictly. Invalid parts are rejected with a reason; valid parts kept."""
     if not isinstance(raw, dict):
         return empty("Your answer was not a JSON object, so nothing was done this round.")
     d = Decision()
     err = d.errors.append
-    keys = TOP_KEYS + (("draw",) if pool else ()) + (("child_answers",) if answers else ())
+    keys = TOP_KEYS + (("draw",) if pool else ()) + (("child_answers",) if answers else ()) + (("pass_on", "buy") if trade else ())
     for k in raw:
         if k not in keys:
             err(f"Unknown field '{str(k)[:40]}' was ignored.")
@@ -175,6 +183,19 @@ def parse(raw: Any, types: tuple[str, ...], max_text: int, pool: bool = False, a
             continue
         d.child_answers.append((ans["from"].strip(), ans["answer"] == "accept", text))
 
+    for p in (raw.get("pass_on") or []) if trade else []:
+        price = _number(p.get("price", 0)) if isinstance(p, dict) else None
+        if (not isinstance(p, dict) or not isinstance(p.get("item"), str) or not isinstance(p.get("to"), str)
+                or price is None or price < 0):
+            err("Passing on an item needs item (an id), to (a villager's id) and a price of 0 or more; one was ignored.")
+            continue
+        d.pass_on.append((p["item"].strip(), p["to"].strip(), price))
+    for b in (raw.get("buy") or []) if trade else []:
+        if isinstance(b, str) and b.strip():
+            d.buy.append(b.strip())
+        else:
+            err("buy takes offer ids such as O3; one entry was ignored.")
+
     actions = raw.get("actions", [])
     if not isinstance(actions, list):
         err("actions must be a list; they were rejected.")
@@ -212,13 +233,6 @@ def _action(a: Any, types: tuple[str, ...], max_text: int) -> Action | str:
     if t == "read" and not fields_["item"]:
         return "A read action with no item id was rejected."
     return Action(type=t, plot=plot, **fields_)
-
-
-GENDER_RE = re.compile(r"^[^\W\d_](?:[^\W\d_]|[ -]){0,19}$")
-
-
-def valid_gender(g: str) -> bool:
-    return bool(GENDER_RE.match(g or "")) and g == g.strip() and "  " not in g
 
 
 def valid_name(name: str) -> bool:

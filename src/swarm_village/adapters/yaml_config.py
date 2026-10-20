@@ -19,7 +19,7 @@ SECTIONS = {
     "tontine": TontineConfig, "prompt": PromptConfig,
 }
 FIELD_FOR = {"seed": "seed_artifact"}
-SCALARS = ("rounds", "population", "goal_every", "log_prompts", "snapshot_every", "genders")
+SCALARS = ("rounds", "population", "goal_every", "log_prompts", "snapshot_every")
 BATCH_KEYS = ("arms", "seeds", "runtime", "pricing", "output_dir", "name")
 
 

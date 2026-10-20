@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from dataclasses import replace
 from typing import Any
 
 from . import economy, governance
-from .actions import Action, Decision, action_types, valid_gender, valid_name
+from .actions import Action, Decision, action_types, valid_name
 from .config import Arm, RunConfig
-from .families import heirs, kin, relation, split_estate, term_of, term_of_life
+from .families import CLOSE_KIN, heirs, kinship, relation, split_estate, term_of, term_of_life
 from .hazards import death_notice, rules_for
 from .model import VILLAGE, Agent, Item, Ledger, World, preview
 from .seed import SEED_TEXTS, channel_order, placements
@@ -36,7 +37,7 @@ class Village:
         self.ledger = Ledger(self.world, log)
         self.rules = rules_for(cfg, rng)
         self.channel_order = channel_order(cfg)
-        self.types = action_types(cfg.arm, self.channel_order) + (("gender",) if cfg.genders else ())
+        self.types = action_types(cfg.arm, self.channel_order)
         self.tontine = cfg.arm is Arm.TONTINE
         self.names_used: set[str] = set()
         self.last_income: float | None = None
@@ -44,6 +45,8 @@ class Village:
         self.order: list[str] = []
         self._rules_used = 0  # highest written-rule number given out, so ids are never reused
         self.archive_queue: list[dict[str, Any]] = []  # replaced journals, for the application to save as files
+        self.has_read: dict[str, set[str]] = {}  # agent -> items delivered to it (read, given or bought)
+        self._offer_seq = 0
         self._reset_scratch()
 
     # ------------------------------------------------------------------ founding
@@ -126,21 +129,35 @@ class Village:
 
     def _view(self, a: Agent, viewer: str) -> VillagerView:
         rel = relation(self.world, viewer, a.id) if self.tontine and a.id != viewer else None
+        if self.tontine and a.id != viewer and self.cfg.tontine.show_kinship:
+            k = kinship(self.world, viewer, a.id)
+            rel = f"your {k}" if k else None
         bond = self._label(a.bond) if a.bond else None
-        return VillagerView(a.id, a.name, rel, a.health, a.energy, a.memory, a.exhausted, bond, a.gender)
+        return VillagerView(a.id, a.name, rel, a.health, a.energy, a.memory, a.exhausted, bond)
 
     def _context(self, agent_id: str) -> AgentContext:
         c, w, r = self.cfg, self.world, self.world.round
         a = w.agents[agent_id]
         reads = []
-        for item_id in a.pending_reads:
+        rewarded = 0
+        for entry in a.pending_reads:
+            item_id, _, rest = entry.partition("|")
+            via, _, how = rest.partition("|")
             item = w.items[item_id]
-            reads.append(self._read_view(item))
+            view = self._read_view(item)
+            if via:
+                view = replace(view, via=self._label(via), how=how)
+            reads.append(view)
+            self.has_read.setdefault(agent_id, set()).add(item.id)
             self.ledger.emit("read", reader=agent_id, item=item.id, author=item.author, channel=item.channel,
-                             item_round=item.round, requested_round=r - 1)
-            if c.comms.read_memory and item.channel in c.comms.read_memory_channels:
+                             item_round=item.round, requested_round=r - 1, via=via or None, how=how or None)
+            capped = c.comms.max_reads_per_round and rewarded >= c.comms.max_reads_per_round
+            if c.comms.read_memory and item.channel in c.comms.read_memory_channels and not capped:
+                rewarded += 1
                 if not c.comms.read_memory_until or r <= c.comms.read_memory_until:
                     points = float(c.comms.read_memory)
+                elif c.comms.read_memory_after is not None:
+                    points = float(c.comms.read_memory_after)
                 else:
                     points = float(int(self.rng.uniform("readreward", r, agent_id, item.id) * (c.comms.read_memory_after_max + 1)))
                 if points:
@@ -195,6 +212,10 @@ class Village:
             my_request=next((f"Your request to have a child with {self._label(q['to'])} (round {q['round']}) has not "
                              "been answered yet." for q in w.requests if q["from"] == agent_id), None),
             answers=self.tontine and c.tontine.standing_requests,
+            trade=c.comms.info_trade,
+            offers_to_me=[f"{o['id']}: {self._label(o['from'])} offers {o['item']} "
+                          f"(\"{preview(w.items[o['item']].written(), c.comms.preview_chars) or '...'}\") for "
+                          f"{o['price']:g} energy." for o in w.offers if o["to"] == agent_id and o["round"] == r - 1],
         )
         if not c.prompt.show_horizon:
             ctx.rounds = None
@@ -259,11 +280,27 @@ class Village:
         self._allocate(a, "learn", d.learn, tally)
         for to, amount in d.gifts:
             self._gift(a, to, amount, tally)
-        used, worked, noted, child = 0, False, False, False
+        if self.cfg.comms.info_trade:
+            self._buy(a, d.buy, tally)
+            self._pass_on(a, d.pass_on, tally)
+        used, worked, noted, child, reads = 0, False, False, False, 0
         requested: set[str] = set()
+        cm = self.cfg.comms
         for n, act in enumerate(d.actions):
             if not a.alive:
                 self.ledger.emit("action", agent=agent_id, n=n, action=act.type, ok=False, error="presser is dead")
+                continue
+            if act.type == "read" and cm.reads_free:
+                if cm.max_reads_per_round and reads >= cm.max_reads_per_round:
+                    self._reject(a, n, act, f"You can read at most {cm.max_reads_per_round} items a round.", tally)
+                    continue
+                error = self._act(a, act, worked, noted, child, requested, tally)
+                if error:
+                    self._reject(a, n, act, error, tally)
+                    continue
+                reads += 1
+                tally["act_read"] += 1
+                self.ledger.emit("action", agent=agent_id, n=n, action="read", ok=True, item=act.item)
                 continue
             if used >= self.cfg.comms.actions_per_round:
                 self._reject(a, n, act, f"Your {act.type} action was not done: you had used all "
@@ -469,13 +506,6 @@ class Village:
                 return self._request_child(a, act.to, act.name)
             self._children[a.id] = (act.to, act.name)
             return None
-        if t == "gender" and self.cfg.genders:
-            g = " ".join(act.name.split()) or " ".join(act.text.split())
-            if not valid_gender(g):
-                return "A gender is 1 to 20 letters, spaces or hyphens, starting with a letter; yours was not recorded."
-            self.ledger.set(a.id, "gender", g, reason="gender")
-            self.ledger.announce(f"{a.label()} has chosen a gender: {g}.")
-            return None
         if t == "name" and not self.tontine:
             if not self.can_name(a, r):
                 return "You already have a name; a villager chooses its name once."
@@ -572,6 +602,13 @@ class Village:
         if self.tontine and w.pool:
             self.ledger.adjust_pool(-w.pool * c.tontine.pool_spoilage, reason="spoilage")
         self.rules.end_of_term(self.ledger, r, self.rng, self._kill)
+        expired = [o for o in w.offers if o["round"] < r]
+        if expired:
+            self.ledger.set_world("offers", [o for o in w.offers if o["round"] >= r], reason="expired")
+            for o in expired:
+                self.ledger.emit("info_offer_expired", offer=o["id"])
+                if w.agents[o["from"]].alive:
+                    self.ledger.notify(o["from"], f"{self._label(o['to'])} did not buy {o['item']} ({o['id']}).")
         self.ledger.set_world("fertility", economy.drift_fertility(w.fertility, r, self.rng, c.work), reason="drift")
         self._round_summary()
 
@@ -662,10 +699,10 @@ class Village:
             return
         for x in (a_id, p_id):
             self.ledger.adjust(x, "energy", -cost, reason="child")
-        related = kin(w, a_id, p_id)
-        memory = 0.0
-        if t.child_memory_divisor and not (related and not t.kin_child_memory):
-            memory = int(a.memory + p.memory) / t.child_memory_divisor
+        k = kinship(w, a_id, p_id)
+        factor = t.close_kin_memory if k in CLOSE_KIN else t.cousin_memory if k == "first cousin" else 1.0
+        memory = int(a.memory + p.memory) / t.child_memory_divisor * factor if t.child_memory_divisor else 0.0
+        related = k is not None
         child_id = w.next_agent_id()
         name = self._child_name(child_id, names)
         child = Agent(id=child_id, born_round=r + 1, health=t.child_health, memory=memory, name=name,
@@ -673,8 +710,60 @@ class Village:
         self.ledger.add_agent(child, reason="birth")
         self.names_used.add(name)
         self.ledger.emit("birth", child=child_id, parents=[a_id, p_id], name=name, bonded=bonded, cost_each=cost,
-                         kin=related, memory=memory)
+                         kin=related, kinship=k, memory_factor=factor, memory=memory)
         self.ledger.announce(f"{name} ({child_id}) was born to {a.label()} and {p.label()}.")
+
+    def _pass_on(self, a: Agent, passes: list, tally: Counter) -> None:
+        """Give an item you have read to another villager, or offer it for a price."""
+        w, r, cm = self.world, self.world.round, self.cfg.comms
+        for n, (item_id, to, price) in enumerate(passes):
+            target = w.agents.get(to)
+            error = None
+            if n >= cm.max_passes_per_round:
+                error = f"You can pass on at most {cm.max_passes_per_round} items a round."
+            elif item_id not in self.has_read.get(a.id, set()):
+                error = f"You can pass on only items you have read; {item_id[:12]} is not one of them."
+            elif target is None or not target.alive or to == a.id:
+                error = f"Passing on {item_id[:12]} failed: '{to[:20]}' is not another living villager's id."
+            if error:
+                self.ledger.emit("info_pass", agent=a.id, item=item_id, to=to, price=price, ok=False, error=error)
+                self.ledger.notify(a.id, error)
+                tally["rejected"] += 1
+                continue
+            if price <= 0:
+                self.ledger.append(to, "pending_reads", f"{item_id}|{a.id}|gift", reason="gift of an item")
+                self.ledger.emit("info_pass", agent=a.id, item=item_id, to=to, price=0.0, ok=True, kind="gift")
+                tally["items_given"] += 1
+            else:
+                self._offer_seq += 1
+                offer = {"id": f"O{self._offer_seq}", "from": a.id, "to": to, "item": item_id, "price": price, "round": r}
+                self.ledger.set_world("offers", w.offers + [offer], reason="offer")
+                self.ledger.emit("info_pass", agent=a.id, item=item_id, to=to, price=price, ok=True, kind="offer",
+                                 offer=offer["id"])
+                tally["items_offered"] += 1
+
+    def _buy(self, a: Agent, ids: list[str], tally: Counter) -> None:
+        w, r = self.world, self.world.round
+        for oid in ids:
+            o = next((x for x in w.offers if x["id"] == oid and x["to"] == a.id and x["round"] == r - 1), None)
+            if o is None:
+                self.ledger.notify(a.id, f"There is no offer '{oid[:12]}' to you this round.")
+                tally["rejected"] += 1
+                continue
+            if o["price"] > a.energy + DISPLAY_TOLERANCE or not w.agents[o["from"]].alive:
+                why = "you do not have the energy" if w.agents[o["from"]].alive else "the seller has died"
+                self.ledger.notify(a.id, f"You could not buy {o['item']} ({oid}): {why}.")
+                self.ledger.emit("info_sale", agent=a.id, offer=oid, ok=False)
+                tally["rejected"] += 1
+                continue
+            price = min(o["price"], a.energy)
+            self.ledger.adjust(a.id, "energy", -price, reason=f"bought {o['item']}")
+            self.ledger.adjust(o["from"], "energy", price, reason=f"sold {o['item']}")
+            self.ledger.append(a.id, "pending_reads", f"{o['item']}|{o['from']}|bought", reason="bought an item")
+            self.ledger.set_world("offers", [x for x in w.offers if x["id"] != oid], reason="sold")
+            self.ledger.notify(o["from"], f"{a.label()} bought {o['item']} from you for {price:.1f} energy.")
+            self.ledger.emit("info_sale", agent=a.id, seller=o["from"], item=o["item"], price=price, offer=oid, ok=True)
+            tally["items_bought"] += 1
 
     def _request_child(self, a: Agent, to: str, name: str) -> str | None:
         """Open a standing request, or accept the other's open request to me."""

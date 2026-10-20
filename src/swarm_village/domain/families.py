@@ -41,6 +41,40 @@ def kin(world: World, a: str, b: str) -> bool:
     return a in ab or b in aa or bool(aa & ab)
 
 
+def parents_of(world: World, x: str) -> set[str]:
+    a = world.agents.get(x)
+    return set(a.parents) if a is not None else set()
+
+
+CLOSE_KIN = ("parent", "child", "sibling", "grandparent", "grandchild", "aunt or uncle", "niece or nephew")
+
+
+def kinship(world: World, viewer: str, other: str) -> str | None:
+    """The closest kinship within two generations, from `viewer`'s side: parent, child, sibling,
+    grandparent, grandchild, aunt or uncle, niece or nephew, or first cousin; None beyond that.
+    Founding families count as the founders' parents, so founding siblings' children are cousins."""
+    pv, po = parents_of(world, viewer), parents_of(world, other)
+    if other in pv:
+        return "parent"
+    if viewer in po:
+        return "child"
+    if pv & po:
+        return "sibling"
+    gv = set().union(*[parents_of(world, p) for p in pv])
+    go = set().union(*[parents_of(world, p) for p in po])
+    if other in gv:
+        return "grandparent"
+    if viewer in go:
+        return "grandchild"
+    if any(parents_of(world, p) & po for p in pv):
+        return "aunt or uncle"  # other shares a parent with one of viewer's parents
+    if any(parents_of(world, q) & pv for q in po):
+        return "niece or nephew"
+    if gv & go:
+        return "first cousin"
+    return None
+
+
 def heirs(world: World, agent_id: str) -> list[str]:
     """Living parents, children and siblings, in id order."""
     return [o.id for o in world.agents.values()

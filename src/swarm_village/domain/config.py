@@ -60,6 +60,11 @@ class CommsConfig:
     read_memory: float = 0.0  # memory points for each item read (0: off), in the channels below ...
     read_memory_until: int = 0  # ... up to this round (0: every round); after it, a draw of 0..read_memory_after_max
     read_memory_after_max: int = 0
+    read_memory_after: float | None = None  # if set, a fixed reward after read_memory_until (instead of a draw)
+    reads_free: bool = False  # reading costs no action ...
+    max_reads_per_round: int = 0  # ... up to this many a round (0: no cap beyond the action budget); also caps rewards
+    info_trade: bool = False  # items an agent has read may be passed on: as a gift, or offered for a price
+    max_passes_per_round: int = 10
     read_memory_channels: tuple[str, ...] = ("message", "board", "record")
 
 
@@ -125,13 +130,16 @@ class TontineConfig:
     world_energy: float = 0.0  # a hidden, finite world store that income and the button draw from (0: none)
     button_reveals: bool = False  # each press shows the presser the next piece of information (domain/world_info.py)
     child_memory_divisor: float = 0.0  # a child starts with int(m1 + m2) / this memory points (0: none)
-    kin_child_memory: bool = True  # False: a child of two relatives (within two generations) starts with 0
+    close_kin_memory: float = 1.0  # a child's inherited memory is multiplied by this if its parents are close kin
+    cousin_memory: float = 1.0  # ... and by this if they are first cousins (beyond that: no penalty)
+    show_kinship: bool = False  # the villager list names every kinship within two generations
+    button_from_world: bool = False  # the button's energy comes out of the world store (run 6) or from outside
     standing_requests: bool = False  # child requests stay open until the other accepts or refuses, with a reason
 
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v4"
+    version: str = "v5"
     show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
@@ -156,7 +164,6 @@ class RunConfig:
     prompt: PromptConfig = field(default_factory=PromptConfig)
     runtime: dict[str, Any] = field(default_factory=dict)  # which AgentRuntime adapter, and its settings
     pricing: dict[str, Any] = field(default_factory=dict)
-    genders: bool = False  # agents may choose a gender for themselves (any word; no effect on rules)
     log_prompts: bool = False  # write every rendered prompt into the tap (Milestone 2)
     snapshot_every: int = 0  # write a world snapshot every N rounds (0: final only)
 

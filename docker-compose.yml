@@ -38,3 +38,6 @@ services:
   run6:
     <<: *base
     command: ["run", "--config", "configs/run6-world.yaml"]
+  run7:
+    <<: *base
+    command: ["run", "--config", "configs/run7-world.yaml"]

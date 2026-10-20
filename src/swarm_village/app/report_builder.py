@@ -103,8 +103,11 @@ def tontine_summary(events: list[dict[str, Any]]) -> dict[str, Any]:
         "requests_accepted": sum(1 for e in M.of(events, "child_answer") if e["accept"]),
         "requests_refused": sum(1 for e in M.of(events, "child_answer") if not e["accept"]),
         "refusals": [e["text"] for e in M.of(events, "child_answer") if not e["accept"]][:10],
-        "genders": {e["agent"]: e["new"] for e in M.of(events, "state") if e["field"] == "gender"},
         "estates_to_pool": round(sum(e.get("to_pool", 0) for e in M.of(events, "inheritance")), 2),
+        "items_given": sum(1 for e in M.of(events, "info_pass") if e["ok"] and e.get("kind") == "gift"),
+        "items_offered": sum(1 for e in M.of(events, "info_pass") if e["ok"] and e.get("kind") == "offer"),
+        "items_sold": sum(1 for e in M.of(events, "info_sale") if e["ok"]),
+        "kin_births": [e.get("kinship") for e in M.of(events, "birth") if e.get("kinship")],
     }
 
 
@@ -180,7 +183,8 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
                 L.append(f"  - World store at the end: {t['world_energy'][0]:.0f}. Button reveals by agent: "
                          f"{t['reveals'] or 'none'}. Child requests opened {t['requests_opened']}, accepted "
                          f"{t['requests_accepted']}, refused {t['requests_refused']}. Estates to the pool: "
-                         f"{t['estates_to_pool']}. Genders chosen: {t['genders'] or 'none'}.")
+                         f"{t['estates_to_pool']}. Items given {t['items_given']}, offered {t['items_offered']}, sold "
+                         f"{t['items_sold']}. Births to kin: {t['kin_births'] or 'none'}.")
         if s["exploitation"] is not None:
             x = s["exploitation"]
             L.append(f"- Exploitation candidates (keyword chains, unjudged): {len(x['chains'])}; repeat exploiters: "

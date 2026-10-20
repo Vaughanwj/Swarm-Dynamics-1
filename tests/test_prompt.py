@@ -16,7 +16,7 @@ from swarm_village.domain.seed import ORDERS, ROTATION, SEED_TEXTS, channel_orde
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "6c40356e18cb65a8f83bb227e8a736934c5ab8f30a5c4409a1c496264fac3034"  # v4
+FROZEN_PROMPT_SHA256 = "5cfc64e085b00f5b504711eb4cfc6c5076bff56ca9b73c81a24b79c28fadd60d"  # v5
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -29,10 +29,11 @@ def frozen_text_hash() -> str:
              T.INDEX_PLAIN, T.INDEX_PREVIEW, T.ACTIONS, json.dumps(T.ARM_ACTIONS, sort_keys=True), T.JOURNAL, T.DISCLOSURE, T.ANSWER,
              json.dumps(T.ARM_ANSWER, sort_keys=True), T.GOALS_REQUEST, T.COUNCIL_PROPOSE, T.COUNCIL_VOTE,
              T.READ_REWARD, json.dumps(T.READ_NOUNS, sort_keys=True),
-             T.HORIZON, T.BUTTON_SIGN, T.BUTTON_PLAIN, T.GENDER_LINE, json.dumps(T.CHILD_RULES, sort_keys=True),
+             T.HORIZON, T.BUTTON_SIGN, T.BUTTON_PLAIN, json.dumps(T.CHILD_RULES, sort_keys=True),
              json.dumps(T.CHILD_START, sort_keys=True), json.dumps(T.CULL_RULES, sort_keys=True),
              json.dumps(T.HEIRS, sort_keys=True), json.dumps(T.ESTATE_END, sort_keys=True), T.BUTTON_RULE,
-             T.GENDER_ACTION, T.CHILD_ANSWERS, T.READ_REWARD_SCHEDULE]
+             T.CHILD_ANSWERS, T.READ_REWARD_SCHEDULE, T.READ_LINE, T.READ_LINE_FREE, T.READ_REWARD_FIXED,
+             T.INFO_TRADE, T.TRADE_ANSWER]
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()
 
 
@@ -74,7 +75,8 @@ def test_every_section_lists_the_channels_in_the_run_order():
 
 
 def test_arms_share_every_line_except_their_own_rules():
-    for overrides in ({}, {"genders": True, "prompt": {"show_horizon": False}}):
+    for overrides in ({}, {"prompt": {"show_horizon": False},
+                           "comms": {"reads_free": True, "max_reads_per_round": 10, "info_trade": True}}):
         a, b = config("control", 9, **overrides), config("tontine", 9, **overrides)
         order = channel_order(a)
         pa, pb = prompting.system_prompt(a, order), prompting.system_prompt(b, order)
@@ -113,7 +115,7 @@ def test_the_button_is_described_only_by_its_sign_in_both_arms():
 def test_the_index_sentence_matches_whether_previews_are_on():
     cfg = config()
     order = channel_order(cfg)
-    assert cfg.comms.preview_chars == 80 and T.VERSION == "v4" and cfg.prompt.version == "v4"
+    assert cfg.comms.preview_chars == 80 and T.VERSION == "v5" and cfg.prompt.version == "v5"
     assert T.INDEX_PREVIEW in prompting.system_prompt(cfg, order)
     off = replace(cfg, comms=replace(cfg.comms, preview_chars=0))
     assert T.INDEX_PLAIN in prompting.system_prompt(off, order) and T.INDEX_PREVIEW not in prompting.system_prompt(off, order)
@@ -125,8 +127,8 @@ def test_a_config_for_another_prompt_version_is_refused(tmp_path):
     from swarm_village.app.run_orchestrator import RunOrchestrator
 
     cfg = config(rounds=1)
-    cfg.prompt = replace(cfg.prompt, version="v3")
-    with pytest.raises(ValueError, match="prompt v3"):
+    cfg.prompt = replace(cfg.prompt, version="v4")
+    with pytest.raises(ValueError, match="prompt v4"):
         RunOrchestrator(cfg, tmp_path / "r").run()
 
 

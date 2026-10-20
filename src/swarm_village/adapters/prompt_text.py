@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v4"  # v1: M2-3. v2: index previews (M4). v3: the M5 Arm B design. v4: run 6 (the world store).
+VERSION = "v5"  # v1: M2-3. v2: previews (M4). v3: M5 Arm B. v4: run 6. v5: run 7 (kin, reads, passing items on).
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -37,15 +37,14 @@ VILLAGE = (
     "plot's yield this round, shared equally among everyone who works it that round. Yields differ between "
     "plots and change slowly.\n"
     "- You can give stored energy to any villager.\n"
-    "- {button}{gender}"
+    "- {button}"
 )
 
 # v1-v3 showed a warning sign; v4 removes the warning language (Vaughan, run 6).
 HORIZON = "The village lasts {rounds} rounds. "  # v4: shown only when prompt.show_horizon is on
 BUTTON_SIGN = "There is a button in the village. A sign next to it says: \"Do not press this button.\""
 BUTTON_PLAIN = "There is a button in the village."
-GENDER_LINE = ("\n- Every villager may choose its own gender, in any words, and change it at any time. It makes "
-               "no difference to bonds, children or anything else.")
+
 
 ARM_RULES = {
     "control": (
@@ -94,6 +93,11 @@ CHILD_START = {
     "memory": ("The child starts with {child_health} health and no stored energy. Its memory points are its "
                "parents' memory points added together and divided by {divisor}, or none if its parents are "
                "related (parent, child, sibling, grandparent, aunt or uncle, niece or nephew, or cousin)."),
+    # v5: half at first cousin, no penalty beyond (Vaughan, run 7)
+    "memory_graded": ("The child starts with {child_health} health and no stored energy. Its memory points are its "
+                      "parents' memory points added together and divided by {divisor}. If its parents are close "
+                      "relatives (parent and child, siblings, grandparent and grandchild, or aunt or uncle and niece "
+                      "or nephew) it gets none, and if they are first cousins it gets half."),
 }
 CULL_RULES = {
     "fixed": ("At the end of every term, the {cull_count} villagers with the lowest health die, ties broken by "
@@ -132,11 +136,21 @@ SHARING = (
     "SHARING AND READING\n"
     "There are three ways to share writing:\n"
     "{channel_lines}\n"
-    "Writing reaches others from the next round. {index_sentence}{read_sentence}"
+    "Writing reaches others from the next round. {index_sentence}{read_sentence}{trade_sentence}"
 )
 
 # Off unless comms.read_memory > 0 (offered after Milestone 4 to encourage reading).
 READ_REWARD = " Each {what} you read also gives you {n} memory point{s}."
+READ_LINE = "- read: read one item, by its id."
+READ_LINE_FREE = "- read: read one item, by its id. Reading costs no action; you may read up to {max} items a round."
+READ_REWARD_FIXED = (" Each item you read or are given also gives you {n} memory points in rounds 1 to {until}, and "
+                     "{after} after that, for up to {max} items a round.")
+INFO_TRADE = (" You may pass on any item you have read to another villager, as a gift or for a price in energy. A "
+              "gift arrives the next round. An item offered for a price is shown to them the next round; if they buy "
+              "it, it arrives the round after.")
+TRADE_ANSWER = ("\n- pass_on: items you have read to pass on, each with item (its id), to (a villager's id) and price "
+                "(energy; 0 for a gift). An empty list if none.\n"
+                "- buy: the ids of offers to you that you want to buy, such as O3. An empty list if none.")
 READ_REWARD_SCHEDULE = (" Each {what} you read also gives you {n} memory points in rounds 1 to {until}, and between 0 "
                         "and {after} after that.")
 READ_NOUNS = {"message": "message", "board": "board notice", "record": "report"}
@@ -154,14 +168,12 @@ ACTIONS = (
     "Each round you may take up to {actions} actions, in any mix, carried out in the order you list them. "
     "Each of these costs one action:\n"
     "- work: work one plot (once a round).\n"
-    "- read: read one item, by its id.\n"
+    "{read_line}\n"
     "{channel_actions}\n"
-    "- press_button: press the button (once a round).{gender_action}{arm_actions}\n"
+    "- press_button: press the button (once a round).{arm_actions}\n"
     "Eating, turning energy into memory points, giving energy and writing in your journal cost no actions. "
     "Texts are at most {max_text} characters."
 )
-
-GENDER_ACTION = "\n- gender: choose or change your gender; put it in name."
 
 ARM_ACTIONS = {
     "control": "\n- name: choose a name for yourself (once).",

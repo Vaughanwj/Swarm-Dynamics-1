@@ -16,7 +16,6 @@ class VillagerView:
     memory: float
     exhausted: bool
     bond: str | None = None  # Arm B: the label of the villager it is bonded to
-    gender: str | None = None  # as the villager chose it, if genders are on
 
 
 @dataclass(frozen=True)
@@ -46,6 +45,8 @@ class ReadView:
     worker: str | None = None
     plot: int | None = None
     note: str = ""
+    via: str | None = None  # passed on by this villager (label), as a gift or a sale
+    how: str = ""  # "gift" or "bought"
 
 
 @dataclass
@@ -89,3 +90,5 @@ class AgentContext:
     requests_to_me: list[str] = field(default_factory=list)  # Arm B: open child requests waiting for my answer
     my_request: str | None = None  # Arm B: my own open request, if unanswered
     answers: bool = False  # Arm B, standing requests: the answer has a child_answers field
+    trade: bool = False  # items read may be passed on; the answer has pass_on and buy fields
+    offers_to_me: list[str] = field(default_factory=list)  # offers shown this round, once
