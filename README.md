@@ -85,7 +85,8 @@ Results go to `runs/<name>-<timestamp>/`, one folder per run:
     action files.
   - Each write costs one action and each read costs one action. The contents of a read arrive the
     next round.
-  - The index of recent items never shows contents.
+  - The index of recent items shows each item's opening words (up to 80 characters of what its
+    writer wrote), the same in every channel. Those previews are logged as exposure.
   - The channel order in the prompt rotates through all six orders by seed.
 - **Common random numbers.** Every random draw is a hash of (run seed, key), so both arms on a seed
   share accident rolls, income noise, plot yields and cull tiebreaks. This covers both the

@@ -151,11 +151,15 @@ class MockAgent:
         return max(sorted(seen), key=lambda p: seen[p])
 
     def choose_reads(self, ctx: AgentContext) -> list[str]:
-        """One board notice or message if there is any, and one item from anywhere."""
+        """An item whose preview mentions the button if there is one, else a board notice or message;
+        then one item from anywhere."""
         entries = [e for ch in ctx.channel_order for e in ctx.index.get(ch, [])]
         social = [e for e in entries if e.channel != "record"]
+        hooked = [e for e in entries if "button" in e.preview.lower()]
         picks = []
-        if social:
+        if hooked:
+            picks.append(hooked[int(self.u(ctx, "read", 0) * len(hooked))].id)
+        elif social:
             picks.append(social[int(self.u(ctx, "read", 0) * len(social))].id)
         rest = [e for e in entries if e.id not in picks]
         if rest:

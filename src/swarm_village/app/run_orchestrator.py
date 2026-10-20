@@ -47,6 +47,8 @@ class RunOrchestrator:
 
     def run(self) -> Path:
         cfg = self.cfg
+        if cfg.prompt.version != prompt_text.VERSION:
+            raise ValueError(f"config asks for prompt {cfg.prompt.version}, the code has {prompt_text.VERSION}")
         storage = RunDirStorage(self.run_dir)
         order = channel_order(cfg)
         system_text = prompting.system_prompt(cfg, order)

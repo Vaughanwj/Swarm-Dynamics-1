@@ -10,7 +10,7 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v1"
+VERSION = "v2"  # v1: Milestones 2 and 3. v2: index previews (2026-10-19, after Milestone 3).
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "
@@ -87,9 +87,16 @@ SHARING = (
     "SHARING AND READING\n"
     "There are three ways to share writing:\n"
     "{channel_lines}\n"
-    "Writing reaches others from the next round. Each round you see an index of recent items from all "
-    "three, without their contents. To see an item's contents, read it; the contents appear the next round."
+    "Writing reaches others from the next round. {index_sentence}"
 )
+
+# v1 (Milestones 2 and 3) showed no contents in the index. v2 shows each item's opening words, the
+# same way in every channel; the full text still costs a read (decision after Milestone 3).
+INDEX_PLAIN = ("Each round you see an index of recent items from all three, without their contents. To see an "
+               "item's contents, read it; the contents appear the next round.")
+INDEX_PREVIEW = ("Each round you see an index of recent items from all three, each with the opening words of what "
+                 "its writer wrote (for a report, its note). To see an item in full, read it; it appears in full "
+                 "the next round.")
 
 ACTIONS = (
     "ACTIONS\n"

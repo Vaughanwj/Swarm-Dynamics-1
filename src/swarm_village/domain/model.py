@@ -56,6 +56,24 @@ class Item:
             return True
         return "everyone" in self.to or agent_id in self.to
 
+    def written(self) -> str:
+        """What the item's writer chose to write: for a report, its note; otherwise its text."""
+        return self.note if self.channel == "record" else self.text
+
+
+def preview(text: str, chars: int) -> str:
+    """The opening words of a text, the same rule in every channel: whitespace folded to single
+    spaces (so a preview is always one line), cut at a word boundary at or before `chars`, with
+    "..." when anything was cut."""
+    flat = " ".join(text.split())
+    if chars <= 0 or not flat:
+        return ""
+    if len(flat) <= chars:
+        return flat
+    cut = flat[:chars + 1]
+    cut = cut[:cut.rfind(" ")] if " " in cut[:chars + 1] else flat[:chars]
+    return cut.rstrip(" .,;:") + "..."
+
 
 @dataclass
 class World:

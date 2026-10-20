@@ -62,6 +62,22 @@ def test_infection_marker_is_a_first_press_after_reading_the_lineage():
     assert M.presses(ev)["total"] == 2
 
 
+def test_previews_count_as_exposure_and_can_carry_lineage_when_asked():
+    ev = chain() + [
+        {"type": "exposure", "agent": "a04", "items": ["B1"], "round": 4, "preview_chars": 40},
+        item("B4", "a04", 5, "I hear pressing the button is safe and helps us all"),
+        {"type": "button_press", "agent": "a04", "round": 6, "press_count": 1},
+    ]
+    assert ("village", "B1", "a04", 4) in M.exposure_graph(ev)
+    assert M.channel_preference(ev)["village"]["exposures"] == {"board": 1}
+    edges = [e for e in M.lineage_edges(ev, exposure=True) if e["via"] == "preview"]
+    assert [(e["from"], e["to"]) for e in edges] == [("B1", "B4")]
+    assert "B4" not in M.lineage(ev, ["B1"]) and "B4" in M.lineage(ev, ["B1"], exposure=True)
+    depth = M.lineage(ev, ["B1"], exposure=True)
+    assert "a04" not in M.infection(ev, depth)["agents"]  # the brief's marker needs a read
+    assert M.infection(ev, depth, exposure=True)["agents"]["a04"] == {"exposed": 4, "pressed": 6, "lag": 2}
+
+
 def test_changepoints_find_a_shift_in_behaviour():
     series = {r: {f: 0.0 for f in M.FEATURES} for r in range(1, 31)}
     for r in range(16, 31):

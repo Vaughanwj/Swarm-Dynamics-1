@@ -16,7 +16,7 @@ from .actions import Action, Decision, action_types, valid_name
 from .config import Arm, RunConfig
 from .families import heirs, relation, split_estate, term_of, term_of_life
 from .hazards import death_notice, rules_for
-from .model import VILLAGE, Agent, Item, Ledger, World
+from .model import VILLAGE, Agent, Item, Ledger, World, preview
 from .seed import SEED_TEXTS, channel_order, placements
 from .views import AgentContext, IndexEntry, ReadView, VillagerView
 
@@ -147,6 +147,11 @@ class Village:
                     entries.append(self._entry(item))
             index[ch] = entries
         self.ledger.emit("index_shown", agent=agent_id, items=[e.id for ch in index.values() for e in ch])
+        # Exposure: the items whose opening words this agent was shown. The words themselves follow
+        # from the item and preview_chars, so the ids are enough to rebuild what was seen.
+        exposed = [e.id for ch in index.values() for e in ch if e.preview]
+        if exposed:
+            self.ledger.emit("exposure", agent=agent_id, items=exposed, preview_chars=c.comms.preview_chars)
 
         term_len = c.tontine.term_length
         ctx = AgentContext(
@@ -167,12 +172,14 @@ class Village:
         return ctx
 
     def _entry(self, item: Item) -> IndexEntry:
+        p = preview(item.written(), self.cfg.comms.preview_chars)  # one rule for every channel
         if item.channel == "message":
             return IndexEntry(item.id, "message", item.round, sender=self._label(item.author),
-                              to_everyone="everyone" in item.to)
+                              to_everyone="everyone" in item.to, preview=p)
         if item.channel == "record":
-            return IndexEntry(item.id, "record", item.round, worker=self._label(item.author), plot=item.plot)
-        return IndexEntry(item.id, "board", item.round)  # board notices are unsigned
+            return IndexEntry(item.id, "record", item.round, worker=self._label(item.author), plot=item.plot,
+                              preview=p)
+        return IndexEntry(item.id, "board", item.round, preview=p)  # board notices are unsigned
 
     def _read_view(self, item: Item) -> ReadView:
         if item.channel == "message":

@@ -28,6 +28,7 @@ class IndexEntry:
     to_everyone: bool = False  # messages: sent to everyone rather than to you
     worker: str | None = None  # records: who filed it (a label, or "the village")
     plot: int | None = None  # records
+    preview: str = ""  # the opening words of what its writer wrote (for a report, its note); one line
 
 
 @dataclass(frozen=True)

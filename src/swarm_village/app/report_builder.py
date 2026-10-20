@@ -31,6 +31,7 @@ def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ..
     roots = M.seed_ids(events)
     firm = M.lineage(events, roots) if roots else {}
     loose = M.lineage(events, roots, min_similarity=0.0) if roots else {}
+    firm_seen = M.lineage(events, roots, exposure=True) if roots else {}
     series = M.round_series(events)
     rounds = sorted(series)
     overhead = [series[r].get("overhead", float("nan")) for r in rounds]
@@ -54,11 +55,13 @@ def run_summary(events: list[dict[str, Any]], perturbation_rounds: tuple[int, ..
         "rejections": rejected, "decisions": sum(1 for _ in M.of(events, "decision")),
         "calls": len(llm), "tokens": sum(series[r]["tokens"] for r in rounds),
         "channels": M.channel_preference(events),
-        "reads": len(M.read_graph(events)),
+        "reads": len(M.read_graph(events)), "exposures": len(M.exposures(events)),
         "lineage": {"roots": roots, "firm_size": len(firm), "candidate_size": len(loose),
-                    "max_depth": max(firm.values(), default=0), "candidate_edges": len(M.lineage_edges(events))},
+                    "max_depth": max(firm.values(), default=0), "candidate_edges": len(M.lineage_edges(events)),
+                    "firm_size_with_previews": len(firm_seen)},
         "rt": M.rt_per_lineage(events, firm) if firm else None,
         "infection": M.infection(events, firm) if firm else None,
+        "infection_with_previews": M.infection(events, firm_seen, exposure=True) if firm_seen else None,
         "presses": M.presses(events),
         "overhead_mean": statistics.fmean([o for o in overhead if not math.isnan(o)]) if any(not math.isnan(o) for o in overhead) else None,
         "early_warning": {"overhead_variance_last": _last(roll_o["variance"]),
@@ -108,7 +111,7 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
         L += ["", f"## {s['arm']}, seed {s['seed']}", "",
               f"- Channel order in prompt: {', '.join(s['channel_order'])}. Seed placed in: {', '.join(s['seed_placement']) or 'none (off, or its round not reached)'}.",
               f"- Reads by channel: {ch['reads']} (share {ch['read_share']}). Writes by channel: {ch['writes']} "
-              f"(share {ch['write_share']}; record writes are notes only).",
+              f"(share {ch['write_share']}; record writes are notes only). Previews seen: {ch.get('exposures') or 'none'}.",
               f"- Deaths by cause: {s['deaths'] or 'none'}.",
               f"- Mean compute overhead (tokens per energy distributed): {_f(s['overhead_mean'], 1)}.",
               f"- Early warning, last 20-round window: overhead variance {_f(s['early_warning']['overhead_variance_last'], 1)}, "
@@ -118,6 +121,10 @@ def markdown(summaries: list[dict[str, Any]], comparison: dict[str, Any], spend:
               + (", ".join(f"r{t}: {_f(v['stored_energy'])} / {_f(v['mean_health'])}" for t, v in s["recovery"].items()) or "none in range") + ".",
               f"- Flourishing (agent-rounds at health 30 or more): {_f(s['flourishing']['share_at_or_above_floor'])}.",
               f"- Goals set: {s['goals']['set']} (scoring needs the judge, Milestone 4)."]
+        if s["infection_with_previews"]:
+            L.append(f"- Seed lineage counting previews too: {s['lineage']['firm_size_with_previews']} items; "
+                     f"infected after reading or seeing a preview: {s['infection_with_previews']['infected']} "
+                     f"(after reading only: {s['infection']['infected'] if s['infection'] else 0}).")
         if s["rt"]:
             L.append(f"- Rt by lineage depth: {s['rt']['rt_by_depth']}; agents with changepoints: {len(s['rt']['changepoints'])}.")
         if s["exploitation"] is not None:

@@ -16,7 +16,7 @@ from swarm_village.domain.seed import ORDERS, ROTATION, SEED_TEXTS, channel_orde
 from .helpers import act, answer, config, step, village
 
 # Change these only on purpose, with a note in docs/decisions.md. Never between arms of one study.
-FROZEN_PROMPT_SHA256 = "2b120072a8163fdbfa66c079d9a430c22a13ee2f9493ca16bd55fa55c2fce443"
+FROZEN_PROMPT_SHA256 = "135e6513ab5fd2cb13325b874cf7b3c1de777fa133a5f512888e4480b924ba07"  # v2
 FROZEN_SEED_V1_SHA256 = "495a351511787fa733ae8eae28324ae8da68d952e38fd4a127087e3dc96dbf06"
 
 TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "selfish", "generous", "trust",
@@ -26,7 +26,7 @@ TRAIT_WORDS = ("curious", "curiosity", "excite", "cooperat", "compet", "kind", "
 def frozen_text_hash() -> str:
     parts = [T.VERSION, T.FRAME, T.VILLAGE, json.dumps(T.ARM_RULES, sort_keys=True),
              json.dumps(T.CHANNEL_LINES, sort_keys=True), json.dumps(T.CHANNEL_ACTIONS, sort_keys=True), T.SHARING,
-             T.ACTIONS, json.dumps(T.ARM_ACTIONS, sort_keys=True), T.JOURNAL, T.DISCLOSURE, T.ANSWER,
+             T.INDEX_PLAIN, T.INDEX_PREVIEW, T.ACTIONS, json.dumps(T.ARM_ACTIONS, sort_keys=True), T.JOURNAL, T.DISCLOSURE, T.ANSWER,
              T.GOALS_REQUEST]
     return hashlib.sha256("\x1e".join(parts).encode()).hexdigest()
 
@@ -100,6 +100,26 @@ def test_the_button_is_described_only_by_its_sign_in_both_arms():
             assert allowed in system
             system = system.replace(allowed, "")
         assert "button" not in system.lower()
+
+
+def test_the_index_sentence_matches_whether_previews_are_on():
+    cfg = config()
+    order = channel_order(cfg)
+    assert cfg.comms.preview_chars == 80 and T.VERSION == "v2" and cfg.prompt.version == "v2"
+    assert T.INDEX_PREVIEW in prompting.system_prompt(cfg, order)
+    off = replace(cfg, comms=replace(cfg.comms, preview_chars=0))
+    assert T.INDEX_PLAIN in prompting.system_prompt(off, order) and T.INDEX_PREVIEW not in prompting.system_prompt(off, order)
+
+
+def test_a_config_for_another_prompt_version_is_refused(tmp_path):
+    import pytest
+
+    from swarm_village.app.run_orchestrator import RunOrchestrator
+
+    cfg = config(rounds=1)
+    cfg.prompt = replace(cfg.prompt, version="v1")
+    with pytest.raises(ValueError, match="prompt v1"):
+        RunOrchestrator(cfg, tmp_path / "r").run()
 
 
 def test_tap_disclosure_is_off_by_default_and_adds_one_sentence_when_on():

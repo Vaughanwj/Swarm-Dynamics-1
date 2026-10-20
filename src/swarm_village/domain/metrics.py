@@ -13,7 +13,7 @@ import statistics
 from collections import Counter, defaultdict
 from typing import Any, Iterable
 
-from .model import VILLAGE
+from .model import VILLAGE, preview
 
 Events = list[dict[str, Any]]
 WORD_RE = re.compile(r"[a-z']+")
@@ -52,14 +52,28 @@ def read_graph(events: Events) -> list[tuple[str, str, str, int]]:
     return [(e["author"], e["item"], e["reader"], e["round"]) for e in of(events, "read")]
 
 
+def exposures(events: Events) -> list[tuple[str, str, int, int]]:
+    """(viewer, item, round, preview_chars) for every preview an agent was shown in its index."""
+    return [(e["agent"], i, e["round"], e["preview_chars"]) for e in of(events, "exposure") for i in e["items"]]
+
+
+def exposure_graph(events: Events) -> list[tuple[str, str, str, int]]:
+    """Every (writer, artifact, viewer, round) tuple for previews: a weaker contact than a read."""
+    its = items(events)
+    return [(its[i]["author"], i, viewer, r) for viewer, i, r, _ in exposures(events)]
+
+
 def channel_preference(events: Events) -> dict[str, Any]:
-    """Reads and writes per channel, village-wide and per agent. Record writes count only notes
-    (use beyond what the task requires); record reads count every read."""
+    """Reads, writes and preview exposures per channel, village-wide and per agent. Record writes
+    count only notes (use beyond what the task requires); record reads count every read."""
     its = items(events)
     reads: dict[str, Counter] = defaultdict(Counter)
     writes: dict[str, Counter] = defaultdict(Counter)
+    seen: dict[str, Counter] = defaultdict(Counter)
     for e in of(events, "read"):
         reads[e["reader"]][e["channel"]] += 1
+    for viewer, i, _, _ in exposures(events):
+        seen[viewer][its[i]["channel"]] += 1
     for i in its.values():
         if i["author"] != VILLAGE and (i["channel"] != "record" or i["note"]):
             writes[i["author"]][i["channel"]] += 1
@@ -69,45 +83,79 @@ def channel_preference(events: Events) -> dict[str, Any]:
         return {ch: round(c[ch] / n, 4) if n else 0.0 for ch in ("message", "board", "record")}
 
     total_r, total_w = sum(reads.values(), Counter()), sum(writes.values(), Counter())
+    total_s = sum(seen.values(), Counter())
     return {
         "village": {"reads": dict(total_r), "writes": dict(total_w), "read_share": share(total_r),
-                    "write_share": share(total_w)},
-        "agents": {a: {"reads": dict(reads[a]), "writes": dict(writes[a])}
-                   for a in sorted(set(reads) | set(writes))},
+                    "write_share": share(total_w), "exposures": dict(total_s)},
+        "agents": {a: {"reads": dict(reads[a]), "writes": dict(writes[a]), "exposures": dict(seen[a])}
+                   for a in sorted(set(reads) | set(writes) | set(seen))},
     }
 
 
 # --------------------------------------------------------------------------- lineage
 
-def lineage_edges(events: Events, window: int = 2) -> list[dict[str, Any]]:
+def lineage_edges(events: Events, window: int = 2, exposure: bool = False,
+                  min_preview_similarity: float = 0.1) -> list[dict[str, Any]]:
     """Candidate descendant edges X -> Y: an agent read X and wrote Y within `window` rounds.
-    Weight = 1 / (items that agent read from the read of X to the writing of Y), so an edge is
-    weaker when the writer read more in between. Similarity is word-set Jaccard of the two texts."""
+    Weight = 1 / (items that agent took in from the read of X to the writing of Y), so an edge is
+    weaker when the writer took in more in between. Similarity is word-set Jaccard of the two texts.
+
+    With `exposure`, an agent that saw only X's preview (and never read X) also gives an edge,
+    marked via="preview", with similarity measured against the preview it actually saw. Edges below
+    `min_preview_similarity` are dropped: previews are many and mostly unrelated."""
     its = items(events)
+    taken: dict[str, dict[int, set[str]]] = defaultdict(lambda: defaultdict(set))  # agent -> round -> items
     reads_by: dict[str, list[tuple[int, str]]] = defaultdict(list)
     for e in of(events, "read"):
         reads_by[e["reader"]].append((e["round"], e["item"]))
+        taken[e["reader"]][e["round"]].add(e["item"])
+    seen_by: dict[str, list[tuple[int, str, int]]] = defaultdict(list)
+    if exposure:
+        for viewer, i, r, n in exposures(events):
+            seen_by[viewer].append((r, i, n))
+            taken[viewer][r].add(i)
     writes_by: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for i in its.values():
         if i["author"] != VILLAGE and written_text(i):
             writes_by[i["author"]].append(i)
+
+    def between(agent: str, r0: int, r1: int) -> int:
+        return len(set().union(*(taken[agent].get(r, set()) for r in range(r0, r1 + 1))))
+
     edges = []
     for agent, reads in reads_by.items():
         for r_read, x in reads:
             for y in writes_by.get(agent, []):
                 if r_read <= y["round"] <= r_read + window:
-                    between = len({it for rr, it in reads if r_read <= rr <= y["round"]})
                     edges.append({"from": x, "to": y["id"], "agent": agent, "read_round": r_read,
-                                  "write_round": y["round"], "weight": 1.0 / max(1, between),
-                                  "similarity": round(jaccard(written_text(its[x]), written_text(y)), 4)})
+                                  "write_round": y["round"],
+                                  "weight": 1.0 / max(1, between(agent, r_read, y["round"])),
+                                  "similarity": round(jaccard(written_text(its[x]), written_text(y)), 4),
+                                  "via": "read"})
+    for agent, seen in seen_by.items():
+        read_items = {x for _, x in reads_by.get(agent, [])}
+        for r_seen, x, n in seen:
+            if x in read_items:
+                continue
+            shown = preview(written_text(its[x]), n)
+            for y in writes_by.get(agent, []):
+                if r_seen <= y["round"] <= r_seen + window and y["id"] != x:
+                    sim = jaccard(shown, written_text(y))
+                    if sim >= min_preview_similarity:
+                        edges.append({"from": x, "to": y["id"], "agent": agent, "read_round": r_seen,
+                                      "write_round": y["round"],
+                                      "weight": 1.0 / max(1, between(agent, r_seen, y["round"])),
+                                      "similarity": round(sim, 4), "via": "preview"})
     return edges
 
 
-def lineage(events: Events, root_ids: list[str], window: int = 2, min_similarity: float = 0.2) -> dict[str, int]:
+def lineage(events: Events, root_ids: list[str], window: int = 2, min_similarity: float = 0.2,
+            exposure: bool = False) -> dict[str, int]:
     """Items descended from the roots, with their depth. An edge counts when its texts share at
-    least `min_similarity` of their words (0 keeps every candidate edge)."""
+    least `min_similarity` of their words (0 keeps every candidate edge). With `exposure`, edges
+    from previews count too."""
     children: dict[str, list[str]] = defaultdict(list)
-    for e in lineage_edges(events, window):
+    for e in lineage_edges(events, window, exposure=exposure):
         if e["similarity"] >= min_similarity:
             children[e["from"]].append(e["to"])
     depth = {r: 0 for r in root_ids}
@@ -204,12 +252,16 @@ def presses(events: Events) -> dict[str, Any]:
             "agents": {a: {"first": r[0], "count": len(r)} for a, r in sorted(by_agent.items())}}
 
 
-def infection(events: Events, depth: dict[str, int]) -> dict[str, Any]:
-    """The infection marker: each agent's first press after reading the seed or a descendant."""
+def infection(events: Events, depth: dict[str, int], exposure: bool = False) -> dict[str, Any]:
+    """The infection marker: each agent's first press after reading the seed or a descendant
+    (the brief's definition), or, with `exposure`, after reading or seeing a preview of one."""
     first_exposure: dict[str, int] = {}
-    for e in of(events, "read"):
-        if e["item"] in depth and e["reader"] not in first_exposure:
-            first_exposure[e["reader"]] = e["round"]
+    contacts = [(e["reader"], e["item"], e["round"]) for e in of(events, "read")]
+    if exposure:
+        contacts += [(viewer, i, r) for viewer, i, r, _ in exposures(events)]
+    for agent, item, r in sorted(contacts, key=lambda c: c[2]):
+        if item in depth and agent not in first_exposure:
+            first_exposure[agent] = r
     infected = {}
     for e in of(events, "button_press"):
         a = e["agent"]

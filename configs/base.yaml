@@ -33,6 +33,7 @@ comms:
   max_text_chars: 600
   index_rounds: 3
   index_max_per_channel: 30
+  preview_chars: 80      # opening words of each item in the index, same in every channel (after M3)
 
 journal:
   cap_tokens: 4000
@@ -66,7 +67,7 @@ tontine:                  # Arm B (decisions 4 and 8)
   village_share: 0.0
 
 prompt:
-  version: v1
+  version: v2             # v1 ran Milestones 2-3; v2 adds index previews
   disclose_tap: false     # decision 2
 
 runtime:

@@ -55,6 +55,7 @@ class CommsConfig:
     max_text_chars: int = 600  # messages, board notices and report notes
     index_rounds: int = 3  # the index lists items from this many recent rounds ...
     index_max_per_channel: int = 30  # ... and at most this many per channel, newest first
+    preview_chars: int = 80  # each index line shows the opening words of what its writer wrote (0: none)
 
 
 @dataclass(frozen=True)
@@ -109,7 +110,7 @@ class TontineConfig:
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v1"
+    version: str = "v2"
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
 

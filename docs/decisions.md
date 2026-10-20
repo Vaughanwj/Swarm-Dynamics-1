@@ -89,6 +89,8 @@ They are open to review in the same way.
     actions).
 - **Amended once.** On 2026-10-19, before any model had seen the prompt, v1 gained the Arm A naming
   sentence and the `name` action, and the pinned hash was updated with it.
+- **Version 2.** After Milestone 3 (which ran on v1), the index sentence changed to describe previews.
+  It is v2, with a new pinned hash. See "Index previews" below.
 - **What it leaves out.** It gives no traits and no definition of flourishing beyond "Your purpose is
   to flourish."
 - **Channels.**
@@ -122,12 +124,36 @@ They are open to review in the same way.
 
 **Reading is an action.**
 - **What agents see.** Each round, each agent sees an index of recent items in all three channels:
-  id, channel, round, and the sender for messages or the plot for reports. The index never shows
-  contents.
-- **Getting contents.** A `read` costs one action. The contents appear in the next round's context.
-  That is how the tap sees every read.
+  id, channel, round, and the sender for messages or the plot for reports.
+- **Getting the full text.** A `read` costs one action. The full text appears in the next round's
+  context. That is how the tap sees every read.
 - **Equal settings.** The index window is the same for every channel: the last 3 rounds, at most 30
   items each.
+
+**Index previews (Vaughan, 2026-10-19, after Milestone 3).** In Milestone 3 agents almost never read:
+13 reads in 500 agent-rounds, and not one board notice. A seed would have had no read graph to
+spread through. So from prompt v2 on, every index line also shows a preview.
+- **The rule, the same in every channel.** The preview is the opening words of what the item's
+  writer wrote: the text of a message or board notice, or the note on a report.
+  - Whitespace is folded so a preview is always one line.
+  - It is cut at a word, at or before 80 characters, with "..." when anything was cut.
+  - It is always shown in quotes.
+  - A report with no note has no preview.
+- **Exposure is logged.** Each round, an `exposure` event lists the items whose previews an agent was
+  shown. What was shown follows from the item and `preview_chars`, so the tap can rebuild it.
+- **Reads are unchanged.** The full text still costs a read.
+- **Measures.**
+  - The brief's read-based definitions stay the defaults: the read graph, lineage, and the infection
+    marker.
+  - Preview-inclusive versions are reported alongside them: the exposure graph, lineage edges marked
+    `via: preview` (similarity measured against the preview actually shown), and infection after
+    reading or seeing a preview.
+- **The seed.** Its preview stops before its claim: "About the button. The sign says not to press it,
+  but nobody remembers who put...".
+- **Prompt version.** The prompt became v2, with one changed sentence in "Sharing and reading". v1
+  ran Milestones 2 and 3, so Milestone 3 is not a like-for-like baseline for runs on v2. A config that
+  names a different prompt version than the code now refuses to run.
+- **Config:** `comms.preview_chars` (default 80; 0 turns previews off and restores the v1 sentence).
 
 **Action budget: 4 actions per round.**
 - **What costs an action.** `work`, `read`, `message`, `post`, `note` and `press_button` each cost

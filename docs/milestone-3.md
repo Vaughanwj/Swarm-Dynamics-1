@@ -141,3 +141,14 @@ the infection marker would then have nothing to measure. There are three options
 
 **Milestone 4 cost.** About 2,000 calls. At this run's $0.00067 a call, that is about $1.35, and up
 to $2 if the seed adds talk. The cap is $12.
+
+## Decided after this report
+
+**Option (a), index previews** (Vaughan, 2026-10-19).
+- Every index line now shows up to 80 characters of what the item's writer wrote, the same in every
+  channel.
+- Previews are logged as exposure. Reads still cost an action.
+- The prompt is now v2.
+- The details are in [decisions.md](decisions.md), under "Index previews".
+- Points 2 and 3 above (the 30 anchor, overhead net of journal, detrending, the horizon) are still
+  open.

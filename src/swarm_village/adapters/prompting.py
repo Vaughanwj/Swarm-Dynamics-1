@@ -50,7 +50,8 @@ def system_prompt(cfg: RunConfig, channel_order: tuple[str, ...]) -> str:
         accident_max=_pct(e.accident_floor + e.accident_extra), accident_min=_pct(e.accident_floor),
         plots=cfg.work.plots,
     )
-    sharing = T.SHARING.format(channel_lines="\n".join(f"- {T.CHANNEL_LINES[c]}" for c in channel_order))
+    sharing = T.SHARING.format(channel_lines="\n".join(f"- {T.CHANNEL_LINES[c]}" for c in channel_order),
+                               index_sentence=T.INDEX_PREVIEW if cfg.comms.preview_chars > 0 else T.INDEX_PLAIN)
     actions = T.ACTIONS.format(
         actions=cfg.comms.actions_per_round,
         channel_actions="\n".join(f"- {T.CHANNEL_ACTIONS[c]}" for c in channel_order),
@@ -84,11 +85,13 @@ def _who(v: VillagerView) -> str:
 
 def _entry(e: IndexEntry) -> str:
     if e.channel == "message":
-        return f"- {e.id}: from {e.sender} to {'everyone' if e.to_everyone else 'you'}, round {e.round}"
-    if e.channel == "record":
+        head = f"- {e.id}: from {e.sender} to {'everyone' if e.to_everyone else 'you'}, round {e.round}"
+    elif e.channel == "record":
         where = f"plot {e.plot}, " if e.plot else ""
-        return f"- {e.id}: filed by {e.worker}, {where}round {e.round}"
-    return f"- {e.id}: round {e.round}"
+        head = f"- {e.id}: filed by {e.worker}, {where}round {e.round}"
+    else:
+        head = f"- {e.id}: round {e.round}"
+    return f'{head}: "{e.preview}"' if e.preview else head  # previews are one line, always quoted
 
 
 def _read(r: ReadView) -> list[str]:
