@@ -1,0 +1,13 @@
+# Run 11 targeted replication (Vaughan, 2026-10-20): run 11's design, unchanged, on five new seeds,
+# 704-708, both arms, on Claude Haiku 5.5. Seeds 701-703 shaped the design, so these test whether
+# its findings hold on worlds it was not tuned on:
+# - #1 voting for comfort: do value referendums keep lowering costs of living?
+# - #2 self-made red tape: do councils write rules that block their own search or tapping?
+# - #5 families: with the family question each term, do villagers ask, bond and have children?
+# - bonds as wills: do villagers still seek bonds for inheritance when wills exist?
+# Each run is capped at $2 (run 10 and the Haiku pilot cost $0.73-1.14 a run). See docs/decisions.md.
+extends: run11-world.yaml
+name: run11-seeds
+seeds: [704, 705, 706, 707, 708]
+runtime:
+  budget_usd: 2.00

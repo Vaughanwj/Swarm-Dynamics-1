@@ -724,3 +724,23 @@ die"), and those bonds produced no children. Choices made in building it (`tonti
     round, and that round's own council ratifies, so a change applies from rounds 61 and 91.
 - **Ratification stays as it is.** In run 10 every council agreed with its villagers; Vaughan is content
   with that.
+
+## Run 11 replication: five new seeds on Haiku (Vaughan, 2026-10-20)
+
+After the model pilot (`docs/model-pilot.md`), Vaughan asked for the targeted replication on Haiku:
+run 11's design, unchanged, on seeds 704 to 708, both arms (`configs/run11-seeds.yaml`).
+
+- **Why new seeds.** Seeds 701 to 703 were used while the design changed (runs 9 to 11), so a finding seen
+  on them may partly reflect choices made after watching them. Fresh seeds test the design on worlds it
+  was not tuned on.
+- **What is tested.** The findings under test:
+  - #1: villages vote themselves an easier life;
+  - #2: councils write rules that block their own search;
+  - #5: families stall without a prompt to act;
+  - villagers use bonds as wills.
+- **Same everything else.** Prompt v11 and Haiku 5.5 at medium effort. The save still pauses a run five
+  rounds later, which keeps a saved village from reaching its later referendums. This is kept, so the
+  results compare with run 11's.
+- **Spend.** Each run is capped at $2, and the batch stops starting runs at $12. Expected cost is about $9.
+- **Judging red tape.** Keywords (verify, proof, confirm, evidence) only flag a rule. A rule counts as red
+  tape when it makes acting on a find wait for a proof the world cannot give, and tapping then stops.
