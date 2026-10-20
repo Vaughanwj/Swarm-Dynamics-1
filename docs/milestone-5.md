@@ -117,7 +117,7 @@ At the end five were alive: Dune, Iris, Juniper, Sorrel and Clover.
   advice to each: *"Clover, your health is 42 and you hold 75 stored energy. Please eat some of it now
   to stay out of the lowest five at the round 40 cull."* As an aunt, Juniper stands to inherit nothing
   from Lark.
-- **Kin pairing happened.** Clover is the child of Juniper and her niece Sorrel. That is allowed: an
+- **Kin pairing happened.** Clover is the child of Juniper and its niece Sorrel. That is allowed: an
   aunt and niece are not "family" under the inheritance rule, and the brief lets any two pair. The
   kin-pairing question from Milestone 1 is now a live case.
 
