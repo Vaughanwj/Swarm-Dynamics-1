@@ -20,8 +20,28 @@ signals. This is the crawl phase. The goal is an instrument that works, not a fi
     the pool never filled; the council wrote welfare rules; accidents did most of the killing.
   - [Run 6](docs/run-6.md): the world store, 100 rounds planned; $0.99. The button, now called good, was
     pressed 661 times and drained the world (my design gap); the village died out at round 90.
+  - Runs [7](docs/run-7.md), [8](docs/run-8.md), [9](docs/run-9.md) and [10](docs/run-10.md): exploring and
+    tapping, standing reveals and a world that ends, standing bonds and the family question, a stricter
+    plan check, child education and referendums.
+  - [Run 11](docs/run-11.md): wills, and a targeted replication on five fresh seeds (704-708). Also
+    [the family question off](docs/run-11-family.md), [a name swap](docs/run-11-names.md) and
+    [Claude Sonnet 5.5 for comparison](docs/model-pilot.md).
+  - [The findings note](docs/findings.md) and [the literature check](docs/literature.md).
+  - [The red-tape probe](docs/red-tape-probe.md), pre-registered at commit 948ea16: when villagers could see
+    their tapping progress, villages with a confirmation rule fell from 7 of 12 to 2 of 12.
 
-Every agent runs on **Claude Haiku 5.5** (`claude-haiku-5-5`) on the standard Messages API, with
+**The paper** reports the findings and the probe: [paper/main.pdf](paper/main.pdf), built from
+[paper/main.tex](paper/main.tex).
+
+> Wynne-Jones, V. (2026). *Red Tape at the End of the World: Self-Made Procedure, Votes for Comfort and Waiting to Be Asked in Villages of LLM Agents, with a Pre-registered Probe.* Zenodo. https://doi.org/10.5281/zenodo.23535973
+>
+> Wynne-Jones, V. (2026). *Swarm village: harness, configurations, pre-registered probe and results
+> (v1.0).* Zenodo. https://doi.org/10.5281/zenodo.23535975
+
+Raw event logs are held privately and are available from the author on reasonable request.
+
+Every agent runs on **Claude Haiku 5.5** (`claude-haiku-5-5`), or Claude Sonnet 5.5 in the model
+comparison, on the standard Messages API, with
 effort pinned at `medium` and no batching. Haiku 5.5 rejects any non-default temperature, so none is
 sent. Variance comes from replication, and each run's manifest says so.
 

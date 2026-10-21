@@ -245,7 +245,11 @@ child or will.
    Each costs about $26 for both arms; the control costs more, because its villagers never die.
 2. **The a09 check.** Done on two seeds, and inconclusive (`docs/run-11-names.md`). Settling it would take
    about six runs per condition, at about $1 a run.
-3. **A red-tape probe.** Tell tappers how much effort is still needed. If councils stop demanding proof,
+3. **A red-tape probe.** Done, pre-registered (`docs/red-tape-probe.md`): when everyone could see the tapping
+   progress against what the store needs, villages with a confirmation rule fell from 7 of 12 to 2 of 12, and
+   the pre-registered rule judged finding 2 strengthened, as a mechanism. Saves did not rise, because most
+   villages never wrote the plan down. Originally: tell tappers how much effort is still needed. If councils
+   stop demanding proof,
    the red tape comes from not seeing progress.
 4. **A one-parent condition.** Let one villager have a child alone, to test the tension with the
    Sugarscape study in #5.

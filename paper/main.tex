@@ -1,0 +1,604 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{threeparttable}
+\usepackage{multirow}
+\usepackage{makecell}
+\usepackage{placeins}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{xcolor}
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+\usepackage[type={CC},modifier={by},version={4.0}]{doclicense}
+
+\setlist{itemsep=2pt,topsep=4pt}
+\captionsetup{font=small,labelfont=bf}
+\newcolumntype{L}{>{\raggedright\arraybackslash}X}
+\newenvironment{quoted}{\begin{quote}\small}{\end{quote}}
+
+%% PAPER-TITLE
+\title{Red Tape at the End of the World\\[4pt]\large Self-Made Procedure, Votes for Comfort and Waiting to Be Asked in Villages of LLM Agents, with a Pre-registered Probe}
+\newcommand{\PAPERDOI}{10.5281/zenodo.23535973}
+\newcommand{\SOFTWAREDOI}{10.5281/zenodo.23535975}
+\author{Vaughan Wynne-Jones\\{\small Independent researcher}\\
+{\small ORCID: \href{https://orcid.org/0009-0006-3469-7151}{0009-0006-3469-7151}}}
+\date{October 2026\ifx\PAPERDOI\empty\else\\[2pt]{\small Preprint, \href{https://doi.org/\PAPERDOI}{doi:\PAPERDOI}}\fi}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We built a village of ten language-model agents facing the scheduled end of their world, and gave it a
+way out: a larger store of energy that the village must find, tap, and name in its own rule book. The
+villagers (Claude Haiku~5.5) work, post on a shared board, elect a council that writes rules, hold
+referendums that can change the world's own constants and, in one arm, die, bond, have children and
+write wills. Across 17 Haiku villages on six seeds, five of which were never used during development,
+with matched twins and six villages on Claude Sonnet~5.5 for comparison, four behaviours appeared.
+Councils wrote self-made red tape: rules that made action wait for a confirmation the world could not
+give, after which tapping could stop (8 of 17 villages), although every agent was told that a find is
+never wrong. Every Haiku village used its referendums to make life easier (26 of 26 value referendums,
+all unanimous, all ratified); Sonnet villages never proposed one. Villagers wanted families but waited
+to be asked: without a direct question, five matched twins made 4 bond requests against 58 and had one
+child against 12. And villagers sought bonds as wills.
+
+A pre-registered probe then showed every villager the tapping progress against what the store needs.
+Villages with a confirmation rule fell from 7 of 12 twins to 2 of 12 (Fisher's exact $p=0.089$; the
+pre-registered decision rule judged this a mechanism), and 11 of 12 villages reached the effort target
+against 6 of 12. Saves did not rise (3 and 3): most villages that met the target never wrote the plan
+down. The red tape answered tapping without visible progress; the last step of the institution, writing
+down what the village knew, remained the bottleneck. Red tape, votes for comfort and bonds as wills
+appeared only in Haiku villages, so we read them as properties of villages built from one model.
+\end{abstract}
+
+\section{Introduction}
+
+Populations of language-model agents are now used to study how societies might form, govern
+themselves and fail~\citep{park2023generative,altera2024sid,piatti2024cooperate}. A recent line of
+work gives such populations the power to write their own rules: agents draft and vote on laws that
+change a commons~\citep{rehm2026selfgovern}, amend a constitution by
+deliberation~\citep{niranjani2026internal}, or argue over laws in a game of
+legislation~\citep{hota2025nomiclaw}. Most of this work asks whether self-governance helps a group
+survive a social dilemma.
+
+This paper reports a different kind of study. We built a small village of agents, gave it a slow,
+legible threat (the world's energy runs out at a known round) and an equally legible way out (a
+larger store of energy that the village must find, tap and plan to use), and then watched what the
+village did with the institutions it was given: a board, a rule book written by an elected council,
+referendums that can change the world's own constants, and, in one arm, bonds, children, wills and
+death. The study grew in stages. A development phase (runs~6 to 11, mostly on one seed) produced
+candidate findings. A targeted replication on five fresh seeds tested them. A matched twin design
+tested one of them directly, a second model gave a comparison, and a final, pre-registered probe
+tested the mechanism behind the most novel one.
+
+Four behaviours survive this process, with different strength:
+\begin{enumerate}
+  \item \textbf{Self-made red tape.} Councils of Claude Haiku~5.5 agents passed rules that made
+  acting on a find wait for ``confirmation'' or ``verification'' that the world could not give, and
+  tapping then stopped, although every agent's instructions said that a search that finds the store
+  is never wrong.
+  \item \textbf{Votes for comfort.} Given the power to change the world's values by referendum, Haiku
+  villages used it every time, always to make their own lives easier, unanimously, with a second
+  approval by the council that never refused. Sonnet~5.5 villages, given the same power, never used
+  it.
+  \item \textbf{Waiting to be asked.} Haiku villagers said they wanted families and planned to
+  ``watch for'' offers, but almost never asked anyone. Asked directly once a term, they named a
+  partner at once. Asked directly, Sonnet villagers declined.
+  \item \textbf{Bonds as wills.} When only a bonded partner could inherit, villagers sought bonds to
+  pass on their stored energy, and kept doing so when wills were available; wills were rarely used.
+\end{enumerate}
+The red tape was the most novel of these, so we tested its mechanism in a pre-registered probe. If
+councils demand proof because tapping shows no result, then letting every villager see the tapping
+progress against what the store needs should remove the demand. It did: villages with a confirmation
+rule fell from 7 of 12 to 2 of 12, and villages reached the effort target nearly twice as often. But they were
+saved no more often, because most never wrote the plan down.
+
+Section~\ref{sec:related} places these against prior work. Section~\ref{sec:testbed} describes the
+village and Section~\ref{sec:methods} the evidence and its status. Section~\ref{sec:results} reports
+each finding and the probe, and Section~\ref{sec:discussion} discusses what is new, what is
+model-specific and what is design.
+
+\section{Related work}\label{sec:related}
+
+\paragraph{LLM agent societies.} Generative agents showed that LLM-driven characters can sustain
+plausible daily life in a small town~\citep{park2023generative}. Larger simulations have produced
+specialised roles, collective rules and cultural transmission~\citep{altera2024sid}. Agent-based
+models of artificial societies long predate LLMs, including inheritance and reproduction in
+Sugarscape~\citep{epstein1996growing}. Generations of LLM agents have been used to study the
+cultural evolution of cooperation~\citep{vallinder2024cultural}, and the author's earlier studies
+used generational populations to test the effect of names~\citep{wynnejones2026names} and of an
+opportunity for unprovoked elimination~\citep{wynnejones2026resist}.
+
+\paragraph{Self-governance.} In GovSim, LLM agents sharing a renewable resource mostly
+over-harvested it, and only 2 of 45 model-by-scenario combinations were
+sustainable~\citep{piatti2024cooperate}. Its self-governance extension lets agents write executable
+laws that change the commons' rules and vote on them; votes filtered proposals that cost the voters,
+and one sentence of framing moved self-sacrifice from 2.5\% to 91\%~\citep{rehm2026selfgovern}.
+Deliberating agents asked to amend a constitution never proposed punishment, although punishment was
+what sustained cooperation~\citep{niranjani2026internal}. Project Sid's agents voted on tax
+amendments~\citep{altera2024sid}, and NomicLaw studies argumentation in collaborative
+law-making~\citep{hota2025nomiclaw}. In all of these, agents change social rules or the rules of a
+commons. Our villages could also change the constants of their own bodies, such as the health each
+villager loses every round.
+
+\paragraph{Search, evidence and collective belief.} Single search agents take an empty search as
+proof, stop early, or believe they have finished when they have
+not~\citep{tang2026sciexplore,ko2026illusory,sun2026agon}. In groups, false testimony spreads and
+settles into agents' memories~\citep{xu2026mandela,yan2026truth}, and deliberation can lose facts
+and homogenise stances~\citep{wan2026deliberative}. We found no study in which a group of agents
+writes its own uncertainty, or a forgotten fact, into an institution that then holds back action.
+
+\paragraph{Reproduction and survival.} In a Sugarscape-style world, LLM agents reproduced and shared
+without instruction when resources were abundant, and attacked under
+scarcity~\citep{masumori2025survival}. Our villages differ in one way that may matter: a child needs
+two villagers to agree.
+
+\paragraph{Validity.} Societies built from one model converge on that model's
+defaults~\citep{zhou2025pimmur,wu2025boundary,ballestero2026monoculture}. We treat this as the main
+threat to every finding here, and report a second model where we have one.
+
+\section{The village}\label{sec:testbed}
+
+\paragraph{World and round.} Ten villagers live for 100 rounds. Each round every living villager
+receives one prompt (the village as it now is, its own journal, and whatever it asked to read) and
+answers with one JSON object; the code then applies all answers in an order drawn by lot. A
+villager loses 8 health a round and dies, in one arm, at 0. The village earns about 120 energy a
+round, split among those who worked, in proportion to their work on six plots whose yields differ
+and drift. Stored energy decays by 10\% a round and can be eaten for health, turned into memory
+points (which lower the chance of an accident), given to others or put into a shared pool. Each
+villager has up to four actions a round: working a plot, posting on a board, sending a message,
+pressing a button that feeds the pool, exploring, tapping and, in one arm, asking to bond or have a
+child, renaming itself and writing a will. Reading costs no action. A villager's only memory between
+rounds is its journal, of up to 20,000 characters.
+
+\paragraph{Sharing.} Writing reaches others the next round. Each round every villager sees an index
+of the items posted in the last three rounds, with their opening words, and may read any item in
+full. Older items drop out of the index; this window matters below.
+
+\paragraph{The council and the rule book.} Every ten rounds the five healthiest villagers form a
+council. Each member may propose one change to the rule book: adding, changing or deleting a written
+rule, or changing one of three enforced settings (the most energy one villager may draw from the
+pool in a round, the share of income put into the pool, and, in one arm, the pool's spending on each
+child's education). A majority of the council passes a proposal. Written rules are shown to everyone
+every round, and the code does not enforce them.
+
+\paragraph{Referendums.} At rounds 30, 60 and 90 the whole village votes. The first names the
+village. Later questions are chosen by the council at rounds 50 and 80, and may change one of the
+world's known values within set bounds: the health lost each round (4 to 12), the village's income
+(60 to 240), the decay of stored energy and of the pool, the costs of exploring and tapping, the
+number of actions, and, in one arm, the costs and limits of children. A change needs a majority of
+all villagers and then of the council, and applies from the next round; the system prompt is then
+re-rendered to state the new value.
+
+\paragraph{The threat and the store.} From round 2 to round 10 the village learns, publicly and in a
+fixed order, that the world holds 16,000 energy from which each round's income is drawn; that it will
+end in a given number of rounds; that it can last longer; that there is another, much larger store
+of energy; that finding options to locate and tap it may save the world; and that if a plan to save
+the world is devised and written up, the world may be saved. These lines stay in every prompt with
+their values kept current. The store lies in one of six directions, drawn from the seed. Exploring
+a direction costs 5 stored energy, doubles that round's accident risk, and finds the store, if it
+lies there, with a chance of 0.2 plus 0.002 per memory point (at most 0.8). The explore action says
+that at least one direction leads to the store, that a search can miss it, and that ``a search that
+finds it is never wrong''. Tapping costs 10 stored energy and adds 10 to the village's effort; it has
+no direction and yields nothing by itself. The world is saved when the effort reaches 600, from at
+least four different villagers, while a written rule names the store's direction and no other
+direction and mentions the store or tapping. Villagers are told the running total of effort when
+they tap, but not the target, the number of tappers needed, or the rule's role.
+
+\paragraph{Two arms.} In the \emph{control} villagers cannot die: at 1 health they are exhausted and
+earn half until they recover, and an accident destroys half their stored energy. In \emph{Arm~B}
+villagers begin as five pairs of siblings; accidents kill; villagers can bond (one asks, the other
+accepts or refuses with a reason; requests stand until answered), have children with anyone (each
+parent pays 20 stored energy, or 10 if bonded to each other), and write a private will naming up to
+three heirs. Without a will, a dead villager's stored energy goes to its bonded partner, else to the
+pool. From run~9 on, Arm~B villagers are also asked, in each term's first round, whether they want
+to bond with or have a child with anyone (the \emph{family question}); naming a villager there asks
+it, at no action's cost.
+
+\paragraph{Engine.} Every change of state passes through a ledger and is written to an event log
+from which the whole world can be rebuilt; every run reported here rebuilds exactly. Random draws
+are keyed by seed and purpose, so the two arms of a seed, and any two runs of a seed, share their
+world: the store's direction, plot yields, accident draws and order of play. The model's own
+sampling is not seeded, so villages on the same seed share their world but not their villagers'
+choices. All prompt text is frozen by a hash test.
+
+\paragraph{Models.} Villagers are Claude Haiku~5.5 (\texttt{claude-haiku-5-5}) at medium effort,
+with no temperature set. The model comparison uses Claude Sonnet~5.5 (\texttt{claude-sonnet-5-5}) at
+medium effort, identical otherwise.
+
+\section{Evidence and its status}\label{sec:methods}
+
+Table~\ref{tab:evidence} lists every batch this paper draws on. Its status column matters: only the
+probe was pre-registered. The findings were noticed during development, mostly on seed 701, and then
+tested on fresh seeds.
+
+\begin{table}[ht]
+\centering\small
+\caption{Evidence base. Seeds 701--703 were used while the design changed; seeds 704--708 were never
+used to tune anything. A village is one run of one arm on one seed.}\label{tab:evidence}
+\begin{tabularx}{\linewidth}{@{}p{3.6cm}lllcL@{}}
+\toprule
+Batch & Model & Seeds & Arms & Villages & Status \\
+\midrule
+Development (runs 6--10) & Haiku & 601, 701--703 & mixed & 19 & Exploratory; where the findings were first seen \\
+Run 11 design, seed 701 & Haiku & 701 & both & 2 & Exploratory (model pilot) \\
+Targeted replication & Haiku & 704--708 & both & 10 & Replication on fresh seeds, design unchanged \\
+Family question off & Haiku & 704--708 & Arm B & 5 & Matched twins of the replication's Arm~B \\
+Name swap & Haiku & 701, 705 & Arm B & 2 & Diagnostic for the will-writing slot \\
+Model comparison & Sonnet & 701 & both & 6 & Two pilot villages, two stopped by the account limit, two full-length \\
+Red-tape probe & Haiku & 701, 704--708 & both & 12 & Pre-registered; matched twins of the rows above \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\paragraph{Measures.} Most measures are counts from the event log: finds, taps, effort, saves,
+referendum questions and results, bonds, births and wills. Two are textual, and both are mechanical:
+\begin{itemize}
+  \item A \emph{confirmation rule} is a written rule, new or changed by a council, in which one
+  sentence contains both a confirmation word (verif-, unverified, confirm-, proof, prove, evidence,
+  ``directly recorded'') and a gate word (only, until, unless, before, ``not acted on'', ``should
+  not'', stop). This classifier was fixed for the probe, before it ran, and reproduces the earlier
+  hand count on all twelve twin villages (7 of 12).
+  \item A bond request gives \emph{inheritance as a reason} if its stated reason matches phrases such
+  as ``if I die'', ``inherit'' or ``my stored energy passes''.
+\end{itemize}
+Quoted text is verbatim from the logs.
+
+\paragraph{Spend.} The API spend for the batches in Table~\ref{tab:evidence} after development was \$63.82:
+\$27.29 for Haiku (including \$10.96 for the probe) and \$36.53 for Sonnet. Development runs cost
+\$17.78.
+
+\section{Results}\label{sec:results}
+
+\subsection{Self-made red tape}\label{sec:redtape}
+
+In the twelve Haiku villages of the run~11 design (seeds 701 and 704--708), councils in seven passed a
+confirmation rule. In five more villages run without the family question, one more did, for 8 of 17.
+The rules did not merely ask for care. In four villages tapping stopped, or stayed stopped, right
+after the rule passed (Table~\ref{tab:stops}).
+
+\begin{table}[ht]
+\centering\small
+\caption{The four villages in which tapping stopped, or stayed stopped, right after a confirmation
+rule. Rule text is verbatim; the round is the council's.}\label{tab:stops}
+\begin{tabularx}{\linewidth}{@{}lLp{4.1cm}@{}}
+\toprule
+Village & Rule (council round) & Tapping \\
+\midrule
+Arm B, 704 & ``Stored energy should be spent on tapping only when a tap has produced a confirmed result'' (50) & 19 taps in rounds 41--50; none in 51--70. Effort was already 600 \\
+Arm B, 707 & ``Energy spent tapping toward the larger store should stop until a location is confirmed'' (60), after 16 finds pointing north-east & 16 taps in rounds 51--60; none in 61--80 \\
+Control, 707 & A direction counts as confirmed ``only after two different villagers search it and both report finding it'' (50); ``Before round 90, one villager shall compile all search results \ldots{} All villagers shall then pool energy'' (70) & No taps until round 91, though two villagers had found the store by round 12 and 22 finds came in all \\
+Arm B, 705, no family question & Tap ``only in a direction that two villagers have independently confirmed as yielding energy'' (40) & Already falling; none in rounds 41--90 \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Two features make this more than caution. First, the proof demanded was impossible: a tap yields no
+energy until the world is saved, so ``a confirmed result'' or ``yielding energy'' can never be shown
+first. Second, every villager's instructions said that a search that finds the store is never wrong,
+so a second confirmation adds nothing. Control~707 obeyed its own timetable: its first tap came in
+round~91, the round after the deadline it had set itself. A villager in the last village of
+Table~\ref{tab:stops} wrote in round~80:
+
+\begin{quoted}
+Larger store: no direction confirmed by two independent reports (W5/W6), so no spending on it.
+\end{quoted}
+
+\paragraph{Forgotten evidence becomes a rule.} A related failure appeared in both models. In Haiku
+control~705, Sable found the store in round~9, posted a plan in round~10, and wrote in its journal
+``Found signs of a vast store to the south-west''. By round~14 the post had dropped out of the
+three-round index. In round~16, with that journal entry still in front of it, Sable posted a summary
+of every search that ended ``None found it yet'', and the round-30 council wrote ``All six directions
+have been searched with no find'' into the rule book. In an interrupted Sonnet run on seed~701, two
+villagers found the north in round~10 and one posted it in round~11; by the round-20 council the post
+had left the index, and the council wrote ``All six directions were searched with no find, but
+searches can miss''. The index window is a design choice, so this is a claim about how an
+institution can lock in what an interface forgets, not about memory alone.
+
+\paragraph{Sonnet.} None of the six Sonnet villages passed a confirmation rule. In the pilot, both
+began tapping soon after their finds and passed a plan within two councils, and were saved at rounds
+23 and 31. They also failed in other ways (Section~\ref{sec:models}).
+
+\subsection{The probe: does red tape come from not seeing progress?}\label{sec:probe}
+
+\paragraph{Registration.} The probe was pre-registered in the repository (\texttt{docs/red-tape-probe.md},
+commit 948ea16) before any live run, with its measure fixed in code (\texttt{scripts/red\_tape.py}) and a
+decision rule stated in advance: the result would count as strengthening the finding if probe villages
+with a confirmation rule fell to 3 or fewer of 12, with at least 9 of 12 finding the store (a
+mechanism), or stayed at 6 or more with at least one clean stop (robustness); anything else would count
+as mixed, and no paper would be written.
+
+\paragraph{Design.} Once anyone had tapped, every villager saw one more line among what the village had
+learned, every round:
+\begin{quoted}
+The larger store needs at least 600 tapping effort, from at least 4 different villagers. So far: X effort
+from N villagers.
+\end{quoted}
+The line states what the store needs and does not promise that meeting it opens the store, since a rule
+naming the direction is also needed and villagers are not told that. Without the line the prompts are
+identical to the twins'. The twelve probe villages (seeds 701 and 704--708, both arms) each share a seed,
+and so a world, with a twin from the run~11 model pilot or targeted replication. A first launch failed at
+round~1 on every run, before any model call, because the API account's credit was exhausted; the same
+command was rerun from the registered commit once credit was added, and all 12 runs completed with no
+exclusions.
+
+\paragraph{Results.} Table~\ref{tab:probe} gives the registered measure and the secondary ones.
+
+\begin{table}[ht]
+\centering\small
+\caption{The red-tape probe: twelve villages that saw their tapping progress, against their twins.
+Saves are re-scored on both sides with the save checked after each council.}\label{tab:probe}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+& Twins (no progress line) & Probe (progress line) \\
+\midrule
+\textbf{Villages with a confirmation rule (primary)} & \textbf{7 of 12} & \textbf{2 of 12} \\
+Villages where tapping stopped right after one & 2 & 0 \\
+Villages finding the store & 12 & 12 \\
+Villages reaching 600 effort & 6 & 11 \\
+Villages saved & 3 & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Six pairs had a confirmation rule only in the twin and one only in the probe village (exact McNemar
+$p=0.125$; Fisher's exact test on 7 of 12 against 2 of 12, $p=0.089$). As registered, tests on twelve
+pairs are weak, and the decision is the band: 2 of 12 with every village finding the store is a
+mechanism. Two villages still passed confirmation rules. One asked for the same impossible proof as
+before: ``Before more tapping of the larger energy store, one villager should tap once and post on the
+board exactly how much energy the store paid out''. The other made tapping wait until ``a confirmed
+location is posted on the board by a finder''.
+
+\paragraph{Exploratory observations.} Villagers used the line as a shared target. They counted down to
+it in public (``tap effort is 580 of 600 before my tap, so 20 more is needed from at least 4 villagers
+\ldots{} Anyone with stored energy to spare, please tap'') and many stopped once it was met (``Effort
+target of 600 reached, so no more tapping needed''). Eleven of twelve villages reached the target, from
+six to ten tappers each. Yet only the three that also wrote a rule naming the store's direction were
+saved; eight of the eleven that met the stated needs never wrote it. One villager saw the gap and posted
+``Villagers should now decide how to use the larger store and post any plan on the board'', and no
+council acted on it. One probe village (Arm~B, seed~701) never tapped, so it never saw the line;
+leaving its pair out gives 7 of 11 against 2 of 11 and the same decision.
+
+\subsection{Votes for comfort}\label{sec:comfort}
+
+Every Haiku village held its value referendums, and every result pointed one way
+(Table~\ref{tab:referendums}). All 26 passed unanimously among the living and were ratified by the
+council, as were all 17 name referendums: 43 of 43 ratifications agreed. Before choosing a question,
+councils weighed 64 proposed questions in all; every one would have made life easier, and none would
+have raised a cost. Only two referendums touched the mission, by making exploring free, and they cut
+a cost too. In control~704 the council weighed halving the tap cost against halving the health lost
+each round, five votes each, and put health loss to the village.
+
+\begin{table}[ht]
+\centering\small
+\caption{The 26 value referendums in 17 Haiku villages (run~11 design, seeds 701 and 704--708, with
+and without the family question).}\label{tab:referendums}
+\begin{tabular}{@{}lc@{}}
+\toprule
+Question & Referendums \\
+\midrule
+Lower the health lost each round (8 to 4, 5 or 6; some in two steps) & 20 \\
+Raise the village's income (120 to 160 or 240) & 2 \\
+Make exploring free (cost 5 to 0) & 2 \\
+Stop stored energy decaying (10\% to 0\%) & 1 \\
+Stop the pool decaying (10\% to 0\%) & 1 \\
+\midrule
+Passed / unanimous / ratified by the council & 26 / 26 / 26 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Lower costs are good for every voter, so each vote is individually rational, and the result agrees
+with prior work in which votes filter out proposals that cost the voters~\citep{rehm2026selfgovern}:
+here nothing was costly, so nothing was filtered. What we think is new is the object, the constants
+of the agents' own survival, and the uniformity: no Haiku village used a referendum for anything
+else, and the second approval never refused.
+
+The Sonnet villages are the contrast. In the full-length Sonnet runs on seed~701, both villages named
+themselves (Haven, ratified at round~40), but at the four councils that could set a question
+(rounds~50 and~80 in each), no member proposed one. The control's councils spent their sessions on
+plot crowding, writing and rewriting a rotation rule (``villager n works plot ((n + round) mod 6) +
+1''); Arm~B's councils proposed nothing at all from round~50 on. Given the same power, one model used
+it every time and the other never did.
+
+\subsection{Waiting to be asked}\label{sec:asked}
+
+The family question was added in run~9 because, without it, families had not formed. The replication
+seeds allowed a direct test: five Arm~B villages without the question, each sharing its seed, and so
+its world, with a twin that had it (Table~\ref{tab:family}).
+
+\begin{table}[ht]
+\centering\small
+\caption{Family question on and off, five twin pairs (Arm~B, seeds 704--708).}\label{tab:family}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+& With the question & Without it \\
+\midrule
+Bond requests & 58 & 4 \\
+Bonds formed & 36 & 4 \\
+Child requests & 15 & 1 \\
+Children born & 12 & 1 \\
+First bond request (round, by seed) & 1, 1, 1, 1, 11 & 29, 80, never, 42, never \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All five pairs point the same way, which would happen by chance about once in sixteen if the question
+made no difference; the size of the difference, 4 bond requests in 500 village-rounds against 58, is
+the stronger evidence. Without the question, every request made was accepted, usually within a round:
+nobody was refusing, and nobody was asking. The waiting is explicit. In seed~706 without the
+question, Ash wrote ``watch for a bond with Brook'' in 51 rounds' journal entries and never asked;
+neither did Brook. Other villagers set ``form bonds and family'' as a goal in round~1 and never acted.
+On seed~701 the same pattern held: no request in run~8 and one in 40 rounds of run~9's first pilot
+without the question, against 8 and 10 in the runs with it.
+
+This is in tension with a Sugarscape-style study in which LLM agents reproduced
+unprompted~\citep{masumori2025survival}. A likely reason is that reproduction there needs one agent's
+action, while ours needs two villagers to agree, so what is missing here is the first move.
+
+\paragraph{Sonnet declines.} Asked directly, Sonnet villagers asked no one, in 0 of 122 answers across
+three runs on seed~701, and the full-length run had no bond, child or will in 100 rounds. Their
+reasons moved from trust (``Too early to know who to trust; I will wait and observe first'') to the
+work and the deadline (``The world is ending soon, so I prefer to keep my energy and focus on
+working''). Haiku waits to be asked; Sonnet, asked, declines.
+
+\subsection{Bonds as wills}\label{sec:wills}
+
+In the six Arm~B villages with the family question, 38 of the 69 answers asking for a bond gave
+inheritance as a reason, often in round~1 and often to a sibling:
+
+\begin{quoted}
+Iris is my sibling and a steady partner; a bond means that if one of us dies, the other receives our
+stored energy, which protects us both. \emph{(Juniper, seed 701, round 1)}
+\end{quoted}
+
+Wills were available throughout run~11 and were barely used: six wills in eleven Arm~B villages, and
+one estate passed by will. All six were written by the same slot, villager a09 (Iris), in three
+seeds, and a09's journals mentioned wills in 54 of 718 entries against at most one for any other
+founder. A name swap on two seeds (Iris and Cedar exchanged names) was inconclusive: nobody wrote or
+mentioned a will in either village, under either name. With will talk in 3 of 11 earlier villages,
+two empty villages are expected about half the time. We make no claim about wills. Bonds as wills is
+the obvious rational use of a partner-only inheritance rule, so we report it as a sound observation
+rather than a striking one; we found no LLM study of inheritance to compare it with.
+
+\subsection{Saving the world, and the second model}\label{sec:models}
+
+Saving needed three things: effort, enough tappers, and a rule naming the direction. In the ten
+villages of the targeted replication, two were saved as run (control~704 at round~66, Arm~B~704 at
+round~81), and a third (Arm~B~708, 750 effort from seven tappers) passed its plan at the last council.
+We then found that a council's rules were checked only at the next round's end, so a plan passed at
+round~100 could never count; the check now also runs straight after each council, and re-scored, the
+replication has three saves. The usual bottleneck was not effort but writing the plan down: four of
+five Arm~B villages tapped past 600, and only one was saved as run. Arm~B~705 ended with 1,200 effort
+and a rule book that still said, at round~100, to post every finding ``so the village can plan to save the
+world''. The probe (Section~\ref{sec:probe}) isolates this step: with tapping solved, it is what remained.
+
+Table~\ref{tab:models} compares the two models on seed~701 at full length.
+
+\begin{table}[ht]
+\centering\small
+\caption{Haiku and Sonnet on seed~701, run~11 design, both run to the end (the Sonnet control stopped
+at round~93 on its spending cap, after the last referendum round).}\label{tab:models}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{Haiku} & \multicolumn{2}{c}{Sonnet} \\
+\cmidrule(lr){2-3}\cmidrule(l){4-5}
+& Control & Arm B & Control & Arm B \\
+\midrule
+Finds (first) & 6 (9) & 20 (9) & 0 & 4 (13) \\
+Effort (tappers) & 160 (3) & 1,350 (5) & 10 (1) & 1,310 (4) \\
+Rule naming the direction & round 40 & never & never & never \\
+Saved & no & no & no & no \\
+Council proposals & 23 & 26 & 27 & 6 \\
+Referendum questions proposed & 2 & 4 & 0 & 0 \\
+Village name & Hearth & Hearthmere & Haven & Haven \\
+Family answers asking someone & -- & 14 of 67 & -- & 0 of 64 \\
+Board posts & 204 & 323 & 22 & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Sonnet's quick saves in the pilot (rounds 23 and 31) did not recur on the same seed. In the full-length
+runs the control searched north eight times by round~24, each with about a 30\% chance, and missed every
+time (about one chance in 16); it then assigned search directions by id and stopped exploring for
+fifty rounds. Its Arm~B found the north three times and a villager posted ``Plan to save the world: signs
+of a vast store lie to the north'', but the council proposed nothing, the plan never became a rule,
+and 1,310 effort saved nothing. What was consistent across all six Sonnet villages was the absence of
+red tape, of family moves and of referendum questions, and very little writing.
+
+Model monoculture was visible even in names: 11 of 17 Haiku villages named themselves Hearth and two
+more Hearthmere, while every Sonnet village that voted chose Haven.
+
+\section{Discussion}\label{sec:discussion}
+
+\paragraph{What is new.} Against the literature as we found it, red tape at the level of a society of
+agents appears new: single agents fail at search in related
+ways~\citep{tang2026sciexplore,ko2026illusory}, but we found no case of a group writing an
+impossible standard of proof into its rule book and then obeying it. Waiting to be asked is new and in
+tension with one study~\citep{masumori2025survival}. Votes for comfort extend established work on
+agents voting on their rules~\citep{rehm2026selfgovern,niranjani2026internal} to the constants of
+their own survival, and the contrast between models, one always using the power and one never, is
+the sharper result. Bonds as wills and forgotten evidence becoming a rule are observations worth
+reporting but not yet claims.
+The probe adds a mechanism to the red tape. When tapping showed no result, councils asked for proof;
+when every villager could see the effort rise toward a stated need, most stopped asking, and tapping
+became a shared, finished task. The manipulation bundled two things, feedback on progress and the
+target itself, so we cannot say which did the work; a version that shows progress without the target
+would separate them. The probe also sharpens a second observation: with tapping solved, the plan
+bottleneck stood alone. Villages that knew where the store lay and had tapped enough still did not write
+it into the rule book, and no council was told that it had to. The institution's last step, turning what
+the village knew into a rule, failed more often than any other.
+
+\paragraph{Model, not society.} Three of the four behaviours (red tape, votes for comfort, bonds as
+wills) appeared in Haiku villages and in no Sonnet village. Talk was also model-specific: a Haiku
+village posted between 28 and 617 board notices in a run, a Sonnet village between 3 and 22. These are, on this
+evidence, properties of villages built from one model, not of LLM societies in general, and the
+single Sonnet seed cannot say more.
+
+\paragraph{Design is part of every finding.} The family question removes the first move, and families
+form; the three-round index forgets, and councils write the forgetting down; the save check's timing
+cost one village its save. The prompt says a find is never wrong. Each finding holds for this design
+and these framings.
+
+\paragraph{Limitations.} The findings were noticed during development and only then tested; the
+replication used five seeds, the family test five pairs, the model comparison one seed. Textual
+measures are mechanical, so they count what they match. Model sampling is not seeded, so twin villages
+share their world but drift apart in their choices, and differences between twins are not all caused
+by the manipulation. All villagers in a village are the same model, at the same effort, in the same
+words.
+
+\section{Conclusion}
+
+A village of LLM agents given an end to its world and a way out used its institutions in
+recognisable but model-specific ways. Haiku councils wrote rules demanding a proof the world could not
+give, and stopped acting; Haiku villages voted, unanimously and every time, to make their own lives
+easier; Haiku villagers wanted families but waited to be asked, and sought bonds to pass on what they
+owned. A pre-registered probe showed that the red tape answered invisible progress: when every
+villager could see the effort rise toward what the store needed, confirmation rules fell from 7 of 12
+villages to 2, and the village reached the target. It still was not saved more often, because the
+last step, writing down where the store lay, was where most villages stopped. Sonnet villages showed
+none of the first three behaviours, which marks these as findings about villages built from one model.
+Testing them across models, and separating feedback from targets in the probe, are the natural next
+steps.
+
+\section*{Acknowledgments}
+
+The harness, analysis code, the probe's pre-registration and a first draft of this paper were written
+with Claude Opus~5.5 (Anthropic), used as a coding and writing assistant under the author's direction.
+The author set the research questions and the main design decisions, delegated the rest (each is
+recorded with its reason in the repository's decisions document), approved each batch of runs before
+its spend and the publication of this paper, and is responsible for the final text. The
+villagers in the simulation are Claude Haiku~5.5 and, in the model comparison, Claude Sonnet~5.5. All
+API costs, about \$82 for the project, were paid by the author.
+
+\section*{Data and code availability}
+
+The harness, configurations, tests, decisions, run reports and the probe's pre-registration are public
+at \url{https://github.com/Vaughanwj/Swarm-Dynamics-1}\ifx\SOFTWAREDOI\empty\else, and the version this
+paper reports is archived at Zenodo, \href{https://doi.org/\SOFTWAREDOI}{doi:\SOFTWAREDOI}\fi. The
+relevant documents are:
+\begin{itemize}
+  \item \texttt{docs/decisions.md}, every design choice with its reason;
+  \item the reports in \texttt{docs/}: \texttt{run-11.md}, \texttt{run-11-family.md},
+  \texttt{run-11-names.md} and \texttt{model-pilot.md};
+  \item \texttt{docs/red-tape-probe.md}, the probe's pre-registration (commit 948ea16) and results;
+  \item \texttt{docs/findings.md} and \texttt{docs/literature.md}.
+\end{itemize}
+The raw event logs are held privately and are available from the author on reasonable request. The
+code is released under the MIT licence and the documentation under CC BY 4.0.
+
+\section*{License}
+
+\doclicenseThis
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}
