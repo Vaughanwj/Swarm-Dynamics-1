@@ -21,7 +21,7 @@ from .families import CLOSE_KIN, heirs, kinship, relation, split_estate, term_of
 from .hazards import death_notice, rules_for
 from .model import VILLAGE, Agent, Item, Ledger, World, preview
 from .seed import SEED_TEXTS, channel_order, placements
-from .world_info import REVEALS, learned
+from .world_info import REVEALS, learned, progress
 from .views import AgentContext, IndexEntry, ReadView, VillagerView
 
 EPS = 1e-9
@@ -116,8 +116,12 @@ class Village:
         m, w = self.cfg.commons, self.world
         if not m.standing_reveals:
             return []
-        return learned(m.reveals_version, m.public_reveals, w.round, self.cfg.rounds, w.energy or 0.0,
-                       saved=w.saved_round is not None)
+        out = learned(m.reveals_version, m.public_reveals, w.round, self.cfg.rounds, w.energy or 0.0,
+                      saved=w.saved_round is not None)
+        if m.show_progress and m.explore and w.effort > 0 and w.saved_round is None:
+            # The red-tape probe: progress so far, against what the store needs (counted to last round).
+            out.append((progress(w.effort, len(w.tappers), m.tap_target, m.min_tappers), False))
+        return out
 
     def last_round(self) -> int:
         """The run's last round: `rounds`, or a few rounds after the world is saved, where it pauses."""

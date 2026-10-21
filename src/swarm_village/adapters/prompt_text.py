@@ -10,7 +10,8 @@ only purpose given, and it is not defined.
 
 from __future__ import annotations
 
-VERSION = "v11"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8, v9: run 9. v10: run 10. v11: wills.
+VERSION = "v12"  # v1: M2-3. v2: previews. v3: M5. v4: run 6. v5: kin, reads. v6: run 7. v7: run 8. v8, v9: run 9. v10: run 10. v11: wills.
+#                  v12: the red-tape probe's optional progress line (world_info.PROGRESS); identical to v11 without it.
 
 FRAME = (
     "You live in a village with other villagers. Each round every villager decides what to do, and the "

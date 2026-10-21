@@ -1,0 +1,14 @@
+# The red-tape probe (Vaughan, 2026-10-21), pre-registered in docs/red-tape-probe.md before it ran.
+# Run 11's design on Claude Haiku 5.5, seeds 701 and 704-708, both arms, with one change: once anyone has
+# tapped, every villager sees the village's tapping progress against what the store needs
+# (commons.show_progress, prompt v12; identical to v11 without the line). Each village pairs with its
+# twin from run 11: seed 701 from run11-haiku-pilot, seeds 704-708 from run11-seeds.
+# - save_after_council stays off, as in the twins; the analysis re-scores both sides with it.
+# Each run is capped at $2 (run 11's cost $0.72-1.14 a run); the batch stops starting runs at $14.
+extends: run11-seeds.yaml
+name: red-tape-probe
+seeds: [701, 704, 705, 706, 707, 708]
+prompt:
+  version: v12
+commons:
+  show_progress: true

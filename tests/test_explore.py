@@ -395,3 +395,31 @@ def test_the_explore_line_says_a_search_can_miss_in_both_arms():
         assert ("At least one direction leads to the larger store. A search can miss it, so finding nothing "
                 "does not mean it is not there. A search that finds it is never wrong.") in system
         assert "Your own recent writing is listed too, marked (yours)." in system
+
+
+# --------------------------------------------------------------------------- the red-tape probe (v12)
+
+def test_the_progress_line_is_off_by_default():
+    v = v7(**STANDING)
+    for i in v.world.agents:
+        v.ledger.set(i, "energy", 50.0, "test")
+    step(v, {"a01": answer(actions=[act("tap")])})
+    assert not any("tapping effort" in t for t, _ in v.learned_now())
+
+
+def test_with_show_progress_everyone_sees_tapping_progress_against_what_the_store_needs():
+    v = v7(**STANDING, show_progress=True, tap_target=600, min_tappers=4)
+    for i in v.world.agents:
+        v.ledger.set(i, "energy", 50.0, "test")
+    assert not any("tapping effort" in t for t, _ in v.learned_now())  # nothing until someone taps
+    step(v, {"a01": answer(actions=[act("tap")])})
+    want = ("The larger store needs at least 600 tapping effort, from at least 4 different villagers. "
+            "So far: 10 effort from 1 villager.")
+    assert want in [t for t, _ in v.learned_now()]
+    contexts = step(v, {"a02": answer(actions=[act("tap")])})
+    other = next(c for c in contexts if c.agent_id == "a05" and c.kind == "round")  # not a tapper: it sees it too
+    assert "- The larger store needs at least 600 tapping effort, from at least 4 different villagers. So far: 10 effort " \
+           "from 1 villager." in prompting.user_prompt(other)
+    assert "So far: 20 effort from 2 villagers." in v.learned_now()[-1][0]
+    v.ledger.set_world("saved_round", v.world.round, reason="test")
+    assert not any("tapping effort" in t for t, _ in v.learned_now())  # gone once the world is saved

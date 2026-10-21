@@ -77,7 +77,7 @@ tontine:                  # Arm B (decisions 4 and 8)
   max_rule_chars: 300
 
 prompt:
-  version: v11            # v1: M2-3; v2: previews; v3: M5; v4: run 6; v5: kin, reads; v6: run 7; v7: run 8; v8, v9: run 9; v10: run 10; v11: run 11
+  version: v12            # v1: M2-3; v2: previews; v3: M5; v4: run 6; v5: kin, reads; v6: run 7; v7: run 8; v8, v9: run 9; v10: run 10; v11: run 11; v12: red-tape probe
   disclose_tap: false     # decision 2
 
 runtime:

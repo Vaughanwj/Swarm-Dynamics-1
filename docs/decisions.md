@@ -812,3 +812,22 @@ direction check did not read "northern" as north, and it read "north-western" as
   It came in a village with 420 effort, short of the 600 target, so it could not have saved the world.
   Re-scoring all runs gives the same saves as before.
 - **Applies to every config,** since no earlier result depends on it.
+
+## The red-tape probe (Vaughan, 2026-10-21)
+
+Vaughan asked for the probe proposed in the findings note: show villagers how much tapping effort is still
+needed, to see whether councils stop demanding proof. It is pre-registered in `docs/red-tape-probe.md`,
+with the measure (`scripts/red_tape.py`) and the decision rule fixed before it ran. Choices:
+
+- **Who sees it.** The progress line goes to everyone, not only tappers. It sits among "What the village has
+  learned", because councils, not tappers, write the rules.
+- **When.** It appears once anyone has tapped, so it gives feedback on tapping without advertising tapping
+  before the store has been found.
+- **What it says.** What the store needs (600 effort from at least 4 villagers) and the total so far. It
+  does not promise that the store then opens, since a rule naming the direction is needed too.
+- **Prompt v12.** v11 plus this optional line. The code's prompt version is now v12, so run 11's configs
+  (v11) now need commit 9483abb or earlier to rerun.
+- **Twins.** Run 11 on the same seeds, with `save_after_council` off as there. The saves are re-scored on
+  both sides.
+- **After the run.** If the decision rule says the result strengthens finding 2, the paper and the
+  software are published on Zenodo, as for the earlier studies. Vaughan approved this in advance.

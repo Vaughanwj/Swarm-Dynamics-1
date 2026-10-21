@@ -26,6 +26,16 @@ REVEALS = {
 }
 # v2: once the world is saved, the second piece reads instead:
 SAVED = "The world has been saved. It will not end."
+# v12 (the red-tape probe, Vaughan, 2026-10-21): once anyone has tapped, the village sees its progress against
+# what the store needs. It states the needs and does not promise that meeting them opens the store, since a
+# plan naming the store's direction is needed too.
+PROGRESS = ("The larger store needs at least {target:g} tapping effort, from at least {min_tappers} different "
+            "villagers. So far: {effort:g} effort from {tappers} {villagers}.")
+
+
+def progress(effort: float, tappers: int, target: float, min_tappers: int) -> str:
+    return PROGRESS.format(target=target, min_tappers=min_tappers, effort=effort, tappers=tappers,
+                           villagers="villager" if tappers == 1 else "villagers")
 
 
 def reveal(n: int, energy: float, rounds_left: int, version: str = "v1") -> list[str]:

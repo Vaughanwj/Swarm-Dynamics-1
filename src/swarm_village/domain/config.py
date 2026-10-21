@@ -174,13 +174,15 @@ class CommonsConfig:
     min_tappers: int = 4
     store_bonus: float = 100000.0  # added to the world store when the world is saved
     rounds_after_saved: int = 5  # the run pauses this many rounds after the world is saved (0: it runs on)
+    show_progress: bool = False  # red-tape probe (prompt v12): once tapping has begun, everyone sees the effort and
+    #                              tappers so far against what the store needs (not that a plan is needed too)
     save_after_council: bool = False  # after run 11: the save is checked again straight after each council, so a
     #                                   plan it passes counts that round (until then, from the next round's check)
 
 
 @dataclass(frozen=True)
 class PromptConfig:
-    version: str = "v11"
+    version: str = "v12"
     show_horizon: bool = True  # tell agents how many rounds the village lasts
     disclose_tap: bool = False  # decision 2
     channel_order: tuple[str, ...] | None = None  # None: rotate through the six orders by seed
