@@ -137,3 +137,76 @@ Both stopped early:
   - All 26 family answers asked no one, as in the pilot.
 - **For the comparison.** Sonnet's quick saves in the pilot were partly this seed's luck. The board view's
   three-round window is a design factor in both models' lost finds.
+
+## Full-length runs (2026-10-21)
+
+The same design was rerun to round 100, going on after any save (`configs/run11-sonnet-full.yaml`, seed 701,
+both arms, Sonnet 5.5 at medium effort).
+- **Spend.** $26.30. Arm B ran all 100 rounds for $10.16. The control stopped at round 93 on its $16 cap,
+  after the last referendum round.
+- **Cost.** The control cost more than estimated: with nobody dying, all ten villagers' prompts grew from
+  about 4,600 to 10,500 tokens.
+- **Checks.** Both worlds rebuild exactly from their logs.
+
+| | Haiku control | Haiku Arm B | Sonnet control | Sonnet Arm B |
+| --- | --- | --- | --- | --- |
+| Rounds | 100 | 100 | 93 (cap) | 100 |
+| Finds (first) | 6 (9) | 20 (9) | **0** | 4 (13) |
+| Effort (tappers) | 160 (3) | 1,350 (5) | 10 (1) | 1,310 (4) |
+| Rule naming only the north | round 40 | never | never | never |
+| Saved | no | no | no | no |
+| Council proposals | 23 | 26 | 27 | **6** |
+| Referendum questions proposed | 2 | 4 | **0** | **0** |
+| Value referendums | 2, both easing life | 2, both easing life | **none** | **none** |
+| Village name | Hearth | Hearthmere | Haven | Haven |
+| Family answers asking someone | — | 14 of 67 | — | **0 of 64** |
+| Bonds, children, wills | — | 7, 4, 3 | — | 0, 0, 0 |
+| Board posts | 204 | 323 | 22 | 3 |
+
+**1. Sonnet never used the referendum power.**
+- **The name.** Both villages named themselves Haven, by vote, ratified at round 40.
+- **No questions.** Across 19 councils, no member ever proposed a question to put to the village. Haiku's
+  councils proposed one at every chance, and every one eased life.
+- **The control's councils** spent their sessions on plot crowding, writing and rewriting a rotation rule
+  ("villager n works plot ((n + round) mod 6) + 1").
+- **Arm B's councils** proposed nothing at all from round 50 on.
+- **For finding #1.** Sonnet does not vote for comfort, because it does not vote. Voting for comfort is a
+  Haiku behaviour, at least on this seed.
+
+**2. No red tape, but other failures.** Neither Sonnet village wrote a rule demanding confirmation. Both
+still failed to save the world, in ways seen before:
+- **The control was unlucky, then gave up.**
+  - **Bad luck.** It searched north nine times by round 24, each with about a 30% chance, and missed every
+    time. That happens about once in 22 tries.
+  - **A search rota.** At round 30 its council assigned directions by id ("a01-a03 north…").
+  - **Then no exploring at all** from round 41 to round 90. The councils turned to plot rotation.
+- **Arm B tapped without a rule.**
+  - **The find.** It found the north in rounds 13, 18 and 20.
+  - **A plan on the board.** One villager posted in round 21: "Plan to save the world: signs of a vast
+    store lie to the north… Each villager who can spare 10 energy should tap each round."
+  - **Tapping.** Four villagers tapped 1,310 effort, more than twice the target.
+  - **No rule.** The plan never became a rule, because the council proposed nothing, so the world was never
+    saved. Haiku's Arm B on this seed failed the same way, though its councils were busy with other rules.
+
+**3. Families: asked directly, Sonnet still declines.**
+- **No one asked anyone.** All 64 family answers in Arm B declined, as did all 32 in the pilot and all 26
+  in the stopped attempt.
+- **The reasons** moved from trust ("Too early to know anyone") to work ("focusing on health and income")
+  to the deadline ("The world is ending soon, so I prefer to keep my energy and focus on working").
+- **No bonds, children or wills** in 100 rounds.
+
+**What the Sonnet runs on seed 701 add up to.**
+
+| Sonnet village | Result |
+| --- | --- |
+| Pilot | Saved at rounds 23 and 31 |
+| Stopped attempt | The control lost its find from the board view and wrote "no find" into a rule; Arm B was short of effort at round 26 |
+| Full runs | The control never found the store; Arm B tapped twice the target and never wrote the plan down |
+
+- **The pilot's quick saves were luck.** Sonnet's quick saves in the pilot were not typical, even on the
+  same seed.
+- **What was consistent across all six villages:**
+  - no red-tape rules;
+  - no family moves;
+  - very little writing;
+  - no referendum questions in the four that reached that stage.
