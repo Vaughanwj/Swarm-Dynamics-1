@@ -165,8 +165,9 @@ both arms, Sonnet 5.5 at medium effort).
 
 **1. Sonnet never used the referendum power.**
 - **The name.** Both villages named themselves Haven, by vote, ratified at round 40.
-- **No questions.** Across 19 councils, no member ever proposed a question to put to the village. Haiku's
-  councils proposed one at every chance, and every one eased life.
+- **No questions.** At the four councils that could set one (rounds 50 and 80 in each village), no
+  member proposed a question to put to the village. Haiku's councils proposed one at every chance, and
+  every one eased life.
 - **The control's councils** spent their sessions on plot crowding, writing and rewriting a rotation rule
   ("villager n works plot ((n + round) mod 6) + 1").
 - **Arm B's councils** proposed nothing at all from round 50 on.
@@ -209,4 +210,4 @@ still failed to save the world, in ways seen before:
   - no red-tape rules;
   - no family moves;
   - very little writing;
-  - no referendum questions in the four that reached that stage.
+  - no referendum questions in the two villages that reached the councils able to set them.

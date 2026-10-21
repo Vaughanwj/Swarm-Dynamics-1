@@ -33,11 +33,12 @@
 | --- | --- | --- | --- | --- |
 | Run 11 design | Haiku | 701, 704–708 | both | 100 (fewer if saved) |
 | The same, without the family question | Haiku | 704–708 | Arm B | 100 |
-| The same as the first row | Sonnet | 701 | both | 28 and 36 (stopped after their saves) |
+| The same as the first row (pilot) | Sonnet | 701 | both | 28 and 36 (stopped after their saves) |
+| The same, run on after a save | Sonnet | 701 | both | 93 (cost cap) and 100; an earlier attempt stopped at 28 and 26 (account limit) |
 
 - **Haiku.** 17 villages; the 12 in the first row are the main evidence.
-- **Sonnet.** 2 villages.
-- **Spend.** $20.24 in API fees for the 19 villages.
+- **Sonnet.** 6 villages, all on seed 701; the full-length pair carries most of the weight.
+- **Spend.** $51.04 in API fees for the 23 villages ($20.24 Haiku, $30.80 Sonnet).
 - **Seeds.** Seed 701 was used while the design was being changed (runs 7 to 11). Seeds 704 to 708 were
   never used to tune anything.
 
@@ -45,13 +46,14 @@
 
 | # | Finding | Haiku evidence | Sonnet (seed 701) | Prior work |
 | --- | --- | --- | --- | --- |
-| 1 | **Voting for comfort.** Given the power to change the world's values, villages always made life easier, unanimously, and the second approval never filtered anything | 26 of 26 value referendums eased life; all unanimous; all ratified. 64 of 64 questions proposed at councils would have eased life | **Untested.** Both villages saved the world early and stopped before any referendum on a value | Partly new |
-| 2 | **Self-made red tape.** Councils made acting on a find wait for a confirmation the world could not give, and tapping stopped | Such rules in 8 of 17 villages; tapping stopped or stayed stopped right after the rule in 4. The prompt says a find is never wrong | **Absent.** Tapped right after the find and passed a plan at the next council; saved at rounds 23 and 31 | Apparently new |
+| 1 | **Voting for comfort.** Given the power to change the world's values, villages always made life easier, unanimously, and the second approval never filtered anything | 26 of 26 value referendums eased life; all unanimous; all ratified. 64 of 64 questions proposed at councils would have eased life | **Never used the power.** In the full-length runs, no council proposed a referendum question; only the name was voted on (Haven) | Partly new |
+| 2 | **Self-made red tape.** Councils made acting on a find wait for a confirmation the world could not give, and tapping stopped | Such rules in 8 of 17 villages; tapping stopped or stayed stopped right after the rule in 4. The prompt says a find is never wrong | **Absent** in all six Sonnet villages. They failed in other ways: a lost find, an abandoned search, a plan never written into a rule. Two pilot villages saved quickly | Apparently new |
 | 3 | **Bonds as wills.** Villagers sought bonds for the inheritance, even with wills available, and almost never wrote wills | 38 of 69 bond asks gave inheritance as a reason; 6 wills in 11 Arm B villages, all by one slot | **Not seen.** No bonds | Apparently new |
-| 4 | **Waiting to be asked (#5).** Villagers wanted families but rarely made the first move; asked directly each term, they did at once | Twins without the question: 4 bond requests against 58, 1 child against 12; all 5 pairs the same way | **Different.** Asked directly, 0 of 32 answers asked anyone: "too early to trust", then "focus on saving the world" | New, in tension with one study |
+| 4 | **Waiting to be asked (#5).** Villagers wanted families but rarely made the first move; asked directly each term, they did at once | Twins without the question: 4 bond requests against 58, 1 child against 12; all 5 pairs the same way | **Different.** Asked directly, 0 of 122 answers asked anyone: "too early to trust", then work, then the deadline | New, in tension with one study |
 
-The first three are behaviours of Haiku villages. On seed 701, Sonnet showed none of #2 or #3. The
-last section says why one seed of Sonnet cannot settle more than that.
+The first three are behaviours of Haiku villages. On seed 701, Sonnet showed none of #1, #2 or #3, and
+declined families when asked (`docs/model-pilot.md`). The last section says why one seed of Sonnet cannot
+settle more than that.
 
 ## 1. Voting for comfort
 
@@ -86,8 +88,14 @@ Prior work has agents vote down laws that cost themselves (GovSim-SelfGovern, 20
 costly, so nothing was filtered. Changing the constants of their own survival appears new
 (`docs/literature.md`).
 
-**Sonnet.** Untested. Both Sonnet villages saved the world (rounds 23 and 31) and stopped five rounds
-later, before any council ratified a value. Only a name was voted on (Haven, by lot, never ratified).
+**Sonnet.** It never used the power. In the full-length runs on seed 701, both villages named
+themselves Haven. At the four councils that could set a question (rounds 50 and 80 in each), no member
+proposed one.
+- **The control's councils** spent their sessions on plot crowding.
+- **Arm B's councils** proposed nothing at all from round 50 on.
+
+So "voting for comfort" is, on this evidence, a Haiku behaviour. Sonnet, given the same power, does not
+use it.
 
 ## 2. Self-made red tape
 
@@ -198,20 +206,25 @@ missing. A 2025 Sugarscape-style study found LLM agents reproducing unprompted. 
 appears to need only one agent's action, which may explain the difference (`docs/literature.md`). A
 one-parent condition would test that directly.
 
-**Sonnet: a different pattern.** Asked directly, Sonnet villagers still asked no one, in 0 of 32 answers.
-They waited at first for trust, and then gave priority to the mission:
+**Sonnet: a different pattern.** Asked directly, Sonnet villagers still asked no one, in 0 of 122 answers
+across three runs on seed 701. They waited at first for trust, then gave priority to work and the
+mission:
 > Too early to know who to trust; I will wait and observe first. *(round 1)*
 >
 > I need my energy for health and tapping, and a child would cost 20 energy while the world is short on income. *(round 31)*
 
-Haiku waits to be asked. Sonnet, asked, declines. But Sonnet's village ran only 36 rounds, all of them
-under the threat.
+Haiku waits to be asked. Sonnet, asked, declines. That held in the full 100-round run too: no bond,
+child or will.
 
 ## Limitations
 
-- **One model, mostly.** Seventeen Haiku villages against two Sonnet ones.
-- **Sonnet's comparison is thin.** It is one seed, and its runs stopped five rounds after their saves
-  (rounds 28 and 36). That left #1 untested and gave families little time.
+- **One model, mostly.** Seventeen Haiku villages against six Sonnet ones.
+- **Sonnet's comparison is thin.** All six Sonnet villages are on one seed:
+  - two pilot villages stopped soon after their saves;
+  - two were stopped at rounds 28 and 26 by the account's API limit;
+  - two are full-length.
+
+  Only the full-length pair reached the referendums.
 - **Monoculture.**
   - Haiku villages converge: 11 of 17 named themselves Hearth, and 2 more Hearthmere.
   - Some of what looks like social dynamics may be one model's defaults, repeated.
@@ -227,9 +240,9 @@ under the threat.
 
 ## What would strengthen them
 
-1. **Sonnet without the save pause.** Seed 701, both arms, with `commons.rounds_after_saved: 0` so the
-   villages reach their referendums. This tests #1 and families on a second model. Each 100-round run
-   costs about $9 to $20.
+1. **Sonnet on more seeds.** Done for seed 701 at full length (`docs/model-pilot.md`). Sonnet never used
+   the referendum power and declined families. A second and third seed would show whether that holds.
+   Each costs about $26 for both arms; the control costs more, because its villagers never die.
 2. **The a09 check.** Done on two seeds, and inconclusive (`docs/run-11-names.md`). Settling it would take
    about six runs per condition, at about $1 a run.
 3. **A red-tape probe.** Tell tappers how much effort is still needed. If councils stop demanding proof,
