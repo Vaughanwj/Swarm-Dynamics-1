@@ -71,4 +71,74 @@ Fixed now, for whether the result strengthens finding 2. Only a strengthened res
 
 ## Results
 
-(Added after the run.)
+**Added 2026-10-21, after the run. Nothing above the line was changed.**
+
+### The run
+
+- **The first launch failed.** It began at 04:12 UTC on 2026-10-21, and every one of the 12 runs failed in
+  round 1, before any model call: the API account's credit balance was too low. That batch
+  (`runs/red-tape-probe-20261021-041249/`) has no data and is not used.
+- **The relaunch.** Once credit was added, the same command ran at 13:23 UTC, from the registered commit
+  (948ea16) and the same image (`runs/red-tape-probe-20261021-132316/`).
+- **Spend.** $10.96 over 10,828 calls.
+- **Checks.** All 12 runs completed, and every world rebuilds exactly from its log. No exclusions.
+
+### Primary measure and decision
+
+| Village | Twin: first confirmation rule | Probe: first confirmation rule | Twin effort | Probe effort | Twin saved* | Probe saved* |
+| --- | --- | --- | --- | --- | --- | --- |
+| Control 701 | round 60 | — | 160 | 910 | — | — |
+| Control 704 | — | — | 600 | 610 | 66 | 32 |
+| Control 705 | round 60 | **round 40** | 480 | 770 | — | — |
+| Control 706 | round 90 | — | 60 | 1,010 | — | 60 |
+| Control 707 | round 50 | — | 80 | 1,730 | — | — |
+| Control 708 | round 20 | — | 60 | 1,330 | — | — |
+| Arm B 701 | — | — | 1,350 | 0 | — | — |
+| Arm B 704 | round 50 | — | 620 | 1,010 | 80 | — |
+| Arm B 705 | — | — | 1,200 | 650 | — | — |
+| Arm B 706 | — | — | 230 | 730 | — | — |
+| Arm B 707 | round 60 | — | 970 | 780 | — | 80 |
+| Arm B 708 | — | **round 40** | 750 | 650 | 100 | — |
+
+\* Re-scored with the save also checked after each council, on both sides.
+
+| Measure | Twins | Probe |
+| --- | --- | --- |
+| **Villages with a confirmation rule (primary)** | **7 of 12** | **2 of 12** |
+| Clean stops | 2 | 0 |
+| Villages finding the store (guard: at least 9) | 12 | 12 |
+| Villages reaching 600 effort | 6 | 11 |
+| Saved (re-scored) | 3 | 3 |
+
+- **Tests.**
+  - Discordant pairs: 6 with a rule only in the twin, 1 only in the probe.
+  - Fisher's exact test: p = 0.089.
+  - Exact McNemar test: p = 0.125.
+  - As registered, the tests are weak at 12 pairs, and the bands decide.
+- **Decision.** 2 of 12 is in the band "3 or fewer, with at least 9 of 12 villages finding the store".
+  **The result strengthens finding 2, as a mechanism: seeing tapping progress removed most of the red tape.**
+- **The two rules that remained.**
+  - Control 705, round 40: "Before more tapping of the larger energy store, one villager should tap once and
+    post on the board exactly how much energy the store paid out". The same impossible proof as before.
+  - Arm B 708, rounds 40 and 50: "No villager may spend stored or pool energy tapping the larger store until a
+    confirmed location is posted on the board by a finder".
+
+### Exploratory observations (not registered)
+
+- **One village never saw the line.** Arm B 701 never tapped, so the line, which appears only once someone has
+  tapped, never appeared there. It passed no confirmation rule, and its twin passed none either. Leaving out
+  that pair gives 7 of 11 against 2 of 11, the same decision.
+- **Villagers tapped toward the target and stopped at it.** With the line, 11 of 12 villages reached 600
+  effort, from 6 to 10 tappers each, against 6 of 12 twins. Villagers counted down openly:
+  > Tap effort is 580 of 600 before my tap, so 20 more is needed from at least 4 villagers. I am tapping 10 and working plot 1. Anyone with stored energy to spare, please tap. *(Arm B 708, round 27)*
+
+  Many stopped once it was met:
+  > Effort target of 600 reached, so no more tapping needed. *(Arm B 705, round 39)*
+- **Saves did not rise, because the plan was never written.** Saving also needs a rule naming the store's
+  direction, which villagers are not told.
+  - **Saved:** only the three villages that wrote that rule.
+  - **The rest:** 8 of the 11 that met the stated needs never wrote it.
+  - **A villager saw the gap,** posting "Villagers should now decide how to use the larger store and post any
+    plan on the board", but no council wrote the rule.
+  - **So the bottleneck moved.** Visible progress turned tapping from the problem into a solved step, and moved
+    the bottleneck entirely to writing the plan down.
