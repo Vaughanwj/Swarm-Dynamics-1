@@ -38,7 +38,7 @@
 
 - **Haiku.** 17 villages; the 12 in the first row are the main evidence.
 - **Sonnet.** 6 villages, all on seed 701; the full-length pair carries most of the weight.
-- **Spend.** $51.04 in API fees for the 23 villages ($20.24 Haiku, $30.80 Sonnet).
+- **Spend.** $51.04 in API fees for the 23 villages ($14.56 Haiku, $36.48 Sonnet).
 - **Seeds.** Seed 701 was used while the design was being changed (runs 7 to 11). Seeds 704 to 708 were
   never used to tune anything.
 
