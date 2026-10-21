@@ -177,8 +177,9 @@ both arms, Sonnet 5.5 at medium effort).
 **2. No red tape, but other failures.** Neither Sonnet village wrote a rule demanding confirmation. Both
 still failed to save the world, in ways seen before:
 - **The control was unlucky, then gave up.**
-  - **Bad luck.** It searched north nine times by round 24, each with about a 30% chance, and missed every
-    time. That happens about once in 22 tries.
+  - **Bad luck.** It searched north eight times by round 24, each with about a 30% chance, and missed
+    every time. That happens about once in 16 tries. (Corrected: an earlier version said nine times and 1
+    in 22; the ninth search came in round 92.)
   - **A search rota.** At round 30 its council assigned directions by id ("a01-a03 north…").
   - **Then no exploring at all** from round 41 to round 90. The councils turned to plot rotation.
 - **Arm B tapped without a rule.**
